@@ -19,6 +19,9 @@
       border-radius: 8px; 
       padding: 10px; 
       font-size: 16px;
+      background: #222;
+      color: #fff;
+      border: 1px solid #444;
     }
     button { 
       background: #ffeb3b; 
@@ -46,6 +49,7 @@
       align-items: center; 
     }
     #status { font-weight: bold; color: #4caf50; }
+    #error { font-weight: bold; color: #ff5252; }
   </style>
 </head>
 <body>
@@ -56,11 +60,11 @@
   
   <button id="startBtn" onclick="generateVideo()">1. Generate AI Video</button>
   <p id="status"></p>
+  <p id="error"></p>
 
   <div id="video-container">
-    <!-- 9:16 vertical aspect ratio for TikTok/Shorts -->
     <canvas id="canvas" width="360" height="640"></canvas>
-    <audio id="audio" crossorigin="anonymous"></audio>
+    <audio id="audio" crossorigin="anonymous" playsinline></audio>
     <button id="downloadBtn" style="display:none;">2. Download Video</button>
   </div>
 
@@ -69,6 +73,7 @@
     const ctx = canvas.getContext('2d');
     const audio = document.getElementById('audio');
     const statusText = document.getElementById('status');
+    const errorText = document.getElementById('error');
     const downloadBtn = document.getElementById('downloadBtn');
     
     let mediaRecorder;
@@ -77,52 +82,72 @@
     let scale = 1.0;
 
     async function generateVideo() {
-      const script = document.getElementById('scriptInput').value;
-      statusText.innerText = "Generating AI Image... (Please wait)";
+      statusText.innerText = "Initializing audio engine...";
+      errorText.innerText = "";
       document.getElementById('video-container').style.display = 'flex';
       downloadBtn.style.display = 'none';
 
-      // 1. Fetch AI Image (Free Pollinations API)
-      const prompt = encodeURIComponent("3D Pixar Disney style, realistic sad lemon head man wearing overalls in a wooden boat on a river, 9:16 ratio vertical cinematic");
+      // Unlock mobile audio playback context on direct tap
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const audioCtx = new AudioCtx();
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume();
+      }
+
+      const script = document.getElementById('scriptInput').value;
+      statusText.innerText = "Generating AI Image... (Please wait)";
+
+      // 1. Fetch Image via Pollinations
+      const prompt = encodeURIComponent("3D Pixar style, realistic sad lemon head man wearing overalls in a wooden boat on a river, 9:16 vertical render");
       const imageUrl = `https://image.pollinations.ai/prompt/${prompt}?width=360&height=640&nologo=true`;
-      
+
       const img = new Image();
       img.crossOrigin = "anonymous";
       img.src = imageUrl;
 
-      img.onload = async () => {
-        statusText.innerText = "Image loaded! Generating AI Voice...";
+      img.onerror = () => {
+        errorText.innerText = "Failed to load AI image. Try tapping generate again.";
+        statusText.innerText = "";
+      };
+
+      img.onload = () => {
+        statusText.innerText = "Image loaded! Fetching voiceover...";
         
-        // 2. Fetch AI Voice (Free Google TTS API)
-        const textUrl = encodeURIComponent(script);
-        audio.src = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q=${textUrl}`;
-        
-        audio.onloadeddata = () => {
-          statusText.innerText = "Recording Video... (Audio is playing)";
-          startRecording(img);
+        // 2. Fetch Audio via StreamElements (CORS enabled)
+        const encodedText = encodeURIComponent(script);
+        audio.src = `https://api.streamelements.com/kappa/v2/speech?voice=Brian&text=${encodedText}`;
+
+        audio.onerror = () => {
+          errorText.innerText = "Failed to load audio stream.";
+          statusText.innerText = "";
+        };
+
+        audio.oncanplaythrough = () => {
+          statusText.innerText = "Recording video with motion effect...";
+          startRecording(img, audioCtx);
         };
       };
     }
 
-    function startRecording(img) {
-      // Create a stream from the canvas at 30 frames per second
+    function startRecording(img, audioCtx) {
       const canvasStream = canvas.captureStream(30); 
       
-      // Connect audio to the stream
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const audioSource = audioCtx.createMediaElementSource(audio);
       const audioDestination = audioCtx.createMediaStreamDestination();
       audioSource.connect(audioDestination);
       audioSource.connect(audioCtx.destination); 
 
-      // Combine Canvas (Video) and Audio tracks
       const combinedStream = new MediaStream([
         ...canvasStream.getVideoTracks(),
         ...audioDestination.stream.getAudioTracks()
       ]);
 
-      // Start recording the combined stream
-      mediaRecorder = new MediaRecorder(combinedStream);
+      // WebM codec widely supported across mobile browsers
+      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') 
+        ? 'video/webm;codecs=vp9' 
+        : 'video/webm';
+
+      mediaRecorder = new MediaRecorder(combinedStream, { mimeType });
       recordedChunks = [];
       
       mediaRecorder.ondataavailable = e => { 
@@ -131,9 +156,11 @@
       
       mediaRecorder.onstop = exportVideo;
       mediaRecorder.start();
-      audio.play();
+      
+      audio.play().catch(err => {
+        errorText.innerText = "Tap screen to allow audio playback.";
+      });
 
-      // Create the slow zoom effect
       scale = 1.0;
       function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -145,12 +172,11 @@
 
         ctx.drawImage(img, offsetX, offsetY, scaledWidth, scaledHeight);
         
-        scale += 0.0005; // Adjust this number to make the zoom faster or slower
+        scale += 0.0004;
         animationFrame = requestAnimationFrame(draw);
       }
       draw();
 
-      // Stop everything when the AI stops speaking
       audio.onended = () => {
         mediaRecorder.stop();
         cancelAnimationFrame(animationFrame);
@@ -160,15 +186,14 @@
     }
 
     function exportVideo() {
-      // Package the recorded data into a video file
-      const blob = new Blob(recordedChunks, { type: 'video/mp4' });
+      const blob = new Blob(recordedChunks, { type: 'video/webm' });
       const url = URL.createObjectURL(blob);
       
       downloadBtn.onclick = () => {
         const a = document.createElement('a');
         a.style.display = 'none';
         a.href = url;
-        a.download = 'ai_story_video.mp4';
+        a.download = 'ai_story_video.webm';
         document.body.appendChild(a);
         a.click();
         URL.revokeObjectURL(url);
