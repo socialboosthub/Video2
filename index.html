@@ -1,6 +1,179 @@
-<video width="640" height="360" controls>
-  <source src="../HTML Tutorial for Beginners - 00 - Introduction to HTML.mp4" type="video/mp4">
-</video>
-<video width="640" height="360" controls>
-  <source src="https://github.com/socialboosthub/Video2/blob/5111228dae6aa9dfd0e73ce2d20e071d7931abf0/HTML%20Tutorial%20for%20Beginners%20-%2000%20-%20Introduction%20to%20HTML.mp4" type="video/mp4">
-</video>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Story Maker</title>
+  <style>
+    body { 
+      font-family: system-ui, sans-serif; 
+      background: #121212; 
+      color: white; 
+      padding: 15px; 
+      text-align: center; 
+    }
+    textarea { 
+      width: 90%; 
+      height: 80px; 
+      margin-bottom: 10px; 
+      border-radius: 8px; 
+      padding: 10px; 
+      font-size: 16px;
+    }
+    button { 
+      background: #ffeb3b; 
+      color: black; 
+      border: none; 
+      padding: 15px 20px; 
+      font-size: 16px; 
+      border-radius: 8px; 
+      font-weight: bold; 
+      cursor: pointer; 
+      margin: 10px 0; 
+      width: 95%;
+    }
+    canvas { 
+      background: #000; 
+      margin-top: 15px; 
+      border-radius: 12px; 
+      width: 100%; 
+      max-width: 360px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.5); 
+    }
+    #video-container { 
+      display: none; 
+      flex-direction: column; 
+      align-items: center; 
+    }
+    #status { font-weight: bold; color: #4caf50; }
+  </style>
+</head>
+<body>
+
+  <h2>AI Story Generator</h2>
+  <textarea id="scriptInput">My wife betrayed me and abandoned me. Please make her the way she used to be.</textarea>
+  <br>
+  
+  <button id="startBtn" onclick="generateVideo()">1. Generate AI Video</button>
+  <p id="status"></p>
+
+  <div id="video-container">
+    <!-- 9:16 vertical aspect ratio for TikTok/Shorts -->
+    <canvas id="canvas" width="360" height="640"></canvas>
+    <audio id="audio" crossorigin="anonymous"></audio>
+    <button id="downloadBtn" style="display:none;">2. Download Video</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const audio = document.getElementById('audio');
+    const statusText = document.getElementById('status');
+    const downloadBtn = document.getElementById('downloadBtn');
+    
+    let mediaRecorder;
+    let recordedChunks = [];
+    let animationFrame;
+    let scale = 1.0;
+
+    async function generateVideo() {
+      const script = document.getElementById('scriptInput').value;
+      statusText.innerText = "Generating AI Image... (Please wait)";
+      document.getElementById('video-container').style.display = 'flex';
+      downloadBtn.style.display = 'none';
+
+      // 1. Fetch AI Image (Free Pollinations API)
+      const prompt = encodeURIComponent("3D Pixar Disney style, realistic sad lemon head man wearing overalls in a wooden boat on a river, 9:16 ratio vertical cinematic");
+      const imageUrl = `https://image.pollinations.ai/prompt/${prompt}?width=360&height=640&nologo=true`;
+      
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.src = imageUrl;
+
+      img.onload = async () => {
+        statusText.innerText = "Image loaded! Generating AI Voice...";
+        
+        // 2. Fetch AI Voice (Free Google TTS API)
+        const textUrl = encodeURIComponent(script);
+        audio.src = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q=${textUrl}`;
+        
+        audio.onloadeddata = () => {
+          statusText.innerText = "Recording Video... (Audio is playing)";
+          startRecording(img);
+        };
+      };
+    }
+
+    function startRecording(img) {
+      // Create a stream from the canvas at 30 frames per second
+      const canvasStream = canvas.captureStream(30); 
+      
+      // Connect audio to the stream
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const audioSource = audioCtx.createMediaElementSource(audio);
+      const audioDestination = audioCtx.createMediaStreamDestination();
+      audioSource.connect(audioDestination);
+      audioSource.connect(audioCtx.destination); 
+
+      // Combine Canvas (Video) and Audio tracks
+      const combinedStream = new MediaStream([
+        ...canvasStream.getVideoTracks(),
+        ...audioDestination.stream.getAudioTracks()
+      ]);
+
+      // Start recording the combined stream
+      mediaRecorder = new MediaRecorder(combinedStream);
+      recordedChunks = [];
+      
+      mediaRecorder.ondataavailable = e => { 
+        if (e.data.size > 0) recordedChunks.push(e.data); 
+      };
+      
+      mediaRecorder.onstop = exportVideo;
+      mediaRecorder.start();
+      audio.play();
+
+      // Create the slow zoom effect
+      scale = 1.0;
+      function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        const scaledWidth = canvas.width * scale;
+        const scaledHeight = canvas.height * scale;
+        const offsetX = (canvas.width - scaledWidth) / 2;
+        const offsetY = (canvas.height - scaledHeight) / 2;
+
+        ctx.drawImage(img, offsetX, offsetY, scaledWidth, scaledHeight);
+        
+        scale += 0.0005; // Adjust this number to make the zoom faster or slower
+        animationFrame = requestAnimationFrame(draw);
+      }
+      draw();
+
+      // Stop everything when the AI stops speaking
+      audio.onended = () => {
+        mediaRecorder.stop();
+        cancelAnimationFrame(animationFrame);
+        statusText.innerText = "Video Ready!";
+        downloadBtn.style.display = 'block';
+      };
+    }
+
+    function exportVideo() {
+      // Package the recorded data into a video file
+      const blob = new Blob(recordedChunks, { type: 'video/mp4' });
+      const url = URL.createObjectURL(blob);
+      
+      downloadBtn.onclick = () => {
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = 'ai_story_video.mp4';
+        document.body.appendChild(a);
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+    }
+  </script>
+</body>
+</html>
