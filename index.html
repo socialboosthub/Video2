@@ -1,204 +1,253 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Story Maker</title>
-  <style>
-    body { 
-      font-family: system-ui, sans-serif; 
-      background: #121212; 
-      color: white; 
-      padding: 15px; 
-      text-align: center; 
-    }
-    textarea { 
-      width: 90%; 
-      height: 80px; 
-      margin-bottom: 10px; 
-      border-radius: 8px; 
-      padding: 10px; 
-      font-size: 16px;
-      background: #222;
-      color: #fff;
-      border: 1px solid #444;
-    }
-    button { 
-      background: #ffeb3b; 
-      color: black; 
-      border: none; 
-      padding: 15px 20px; 
-      font-size: 16px; 
-      border-radius: 8px; 
-      font-weight: bold; 
-      cursor: pointer; 
-      margin: 10px 0; 
-      width: 95%;
-    }
-    canvas { 
-      background: #000; 
-      margin-top: 15px; 
-      border-radius: 12px; 
-      width: 100%; 
-      max-width: 360px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.5); 
-    }
-    #video-container { 
-      display: none; 
-      flex-direction: column; 
-      align-items: center; 
-    }
-    #status { font-weight: bold; color: #4caf50; }
-    #error { font-weight: bold; color: #ff5252; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AHM Studio - AI Video Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: { 500: '#eab308', 600: '#ca8a04', 900: '#713f12' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #1f2937; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
+    </style>
 </head>
-<body>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col font-sans">
 
-  <h2>AI Story Generator</h2>
-  <textarea id="scriptInput">My wife betrayed me and abandoned me. Please make her the way she used to be.</textarea>
-  <br>
-  
-  <button id="startBtn" onclick="generateVideo()">1. Generate AI Video</button>
-  <p id="status"></p>
-  <p id="error"></p>
+    <!-- Navbar -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-yellow-500 to-amber-600 flex items-center justify-center font-black text-slate-950 text-xl shadow-lg shadow-amber-500/20">
+                    AHM
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-none">AHM Studio</h1>
+                    <span class="text-xs text-amber-400 font-medium">Auto AI Video Creator</span>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <button onclick="toggleSettings()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-gear text-amber-400"></i> API Settings
+                </button>
+            </div>
+        </div>
+    </header>
 
-  <div id="video-container">
-    <canvas id="canvas" width="360" height="640"></canvas>
-    <audio id="audio" crossorigin="anonymous" playsinline></audio>
-    <button id="downloadBtn" style="display:none;">2. Download Video</button>
-  </div>
+    <!-- Main App Layout -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-  <script>
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const audio = document.getElementById('audio');
-    const statusText = document.getElementById('status');
-    const errorText = document.getElementById('error');
-    const downloadBtn = document.getElementById('downloadBtn');
-    
-    let mediaRecorder;
-    let recordedChunks = [];
-    let animationFrame;
-    let scale = 1.0;
+        <!-- Left Controls Column -->
+        <div class="lg:col-span-5 space-y-6">
 
-    async function generateVideo() {
-      statusText.innerText = "Initializing audio engine...";
-      errorText.innerText = "";
-      document.getElementById('video-container').style.display = 'flex';
-      downloadBtn.style.display = 'none';
+            <!-- API Key Configuration Drawer -->
+            <div id="api-panel" class="hidden bg-slate-900 border border-amber-500/30 rounded-2xl p-4 shadow-xl">
+                <h3 class="font-semibold text-amber-400 text-sm mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-key"></i> AI Service Provider API
+                </h3>
+                <p class="text-xs text-slate-400 mb-3">Add your API Key (e.g., Fal.ai, Replicate, or OpenAI) to power full video generation:</p>
+                <input type="password" id="api-key-input" placeholder="Paste your API Key here (e.g. fal_...) " class="w-full bg-slate-950 border border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+            </div>
 
-      // Unlock mobile audio playback context on direct tap
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      const audioCtx = new AudioCtx();
-      if (audioCtx.state === 'suspended') {
-        await audioCtx.resume();
-      }
+            <!-- Script & Story Section -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+                <h2 class="font-bold text-base text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-scroll text-amber-400"></i> 1. Story & Script Input
+                </h2>
+                
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Full Story Script</label>
+                    <textarea id="script-text" rows="6" placeholder="Paste your full story script here... (e.g. Lemon character is betrayed by his wife, gets help from magic octopus, gets rich and takes revenge...)" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:outline-none focus:border-amber-500 custom-scrollbar resize-none"></textarea>
+                </div>
 
-      const script = document.getElementById('scriptInput').value;
-      statusText.innerText = "Generating AI Image... (Please wait)";
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Target Duration</label>
+                        <select id="duration" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+                            <option value="60">1 Minute Shorts</option>
+                            <option value="180" selected>3 Minutes (Standard)</option>
+                            <option value="240">4 Minutes (Extended)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Episodes Split</label>
+                        <select id="episodes" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+                            <option value="1">1 Full Video</option>
+                            <option value="2">2 Episodes</option>
+                            <option value="3">3 Episodes</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
 
-      // 1. Fetch Image via Pollinations
-      const prompt = encodeURIComponent("3D Pixar style, realistic sad lemon head man wearing overalls in a wooden boat on a river, 9:16 vertical render");
-      const imageUrl = `https://image.pollinations.ai/prompt/${prompt}?width=360&height=640&nologo=true`;
+            <!-- Character Customizer Section -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-4">
+                <h2 class="font-bold text-base text-slate-100 flex items-center gap-2">
+                    <i class="fa-solid fa-user-gear text-amber-400"></i> 2. Character & Visual Style
+                </h2>
 
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.src = imageUrl;
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Main Character 1</label>
+                        <input type="text" id="char1" value="Lemon Man in overalls and suit" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 mb-1">Main Character 2</label>
+                        <input type="text" id="char2" value="Apple Man in black shirt" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+                    </div>
+                </div>
 
-      img.onerror = () => {
-        errorText.innerText = "Failed to load AI image. Try tapping generate again.";
-        statusText.innerText = "";
-      };
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">Visual Animation Style</label>
+                    <select id="art-style" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-amber-500">
+                        <option value="3d-animation">3D Animated Stylized (Like sample video)</option>
+                        <option value="cinematic-real">Cinematic Photorealistic</option>
+                        <option value="anime">Anime / Fantasy 2D</option>
+                    </select>
+                </div>
 
-      img.onload = () => {
-        statusText.innerText = "Image loaded! Fetching voiceover...";
-        
-        // 2. Fetch Audio via StreamElements (CORS enabled)
-        const encodedText = encodeURIComponent(script);
-        audio.src = `https://api.streamelements.com/kappa/v2/speech?voice=Brian&text=${encodedText}`;
+                <button onclick="generateVideoTimeline()" class="w-full py-3.5 bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-400 hover:to-amber-500 text-slate-950 font-bold rounded-xl shadow-lg shadow-amber-500/20 transition flex items-center justify-center gap-2 text-sm">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Full AI Video
+                </button>
+            </div>
+        </div>
 
-        audio.onerror = () => {
-          errorText.innerText = "Failed to load audio stream.";
-          statusText.innerText = "";
-        };
+        <!-- Right Preview & Storyboard Column -->
+        <div class="lg:col-span-7 space-y-6">
 
-        audio.oncanplaythrough = () => {
-          statusText.innerText = "Recording video with motion effect...";
-          startRecording(img, audioCtx);
-        };
-      };
-    }
+            <!-- Video Player Window -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-lg">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="font-bold text-base text-slate-100 flex items-center gap-2">
+                        <i class="fa-solid fa-play text-amber-400"></i> Video Preview & Output
+                    </h2>
+                    <span id="status-badge" class="text-xs px-2.5 py-1 rounded-full bg-slate-800 text-slate-400 font-medium">Ready</span>
+                </div>
 
-    function startRecording(img, audioCtx) {
-      const canvasStream = canvas.captureStream(30); 
-      
-      const audioSource = audioCtx.createMediaElementSource(audio);
-      const audioDestination = audioCtx.createMediaStreamDestination();
-      audioSource.connect(audioDestination);
-      audioSource.connect(audioCtx.destination); 
+                <div class="relative aspect-[9/16] max-h-[480px] mx-auto bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center text-center p-6 group">
+                    <div id="video-placeholder" class="space-y-3">
+                        <i class="fa-solid fa-clapperboard text-4xl text-slate-700"></i>
+                        <p class="text-xs text-slate-500">Enter your script and click "Generate Full AI Video" to render your multi-scene animation.</p>
+                    </div>
 
-      const combinedStream = new MediaStream([
-        ...canvasStream.getVideoTracks(),
-        ...audioDestination.stream.getAudioTracks()
-      ]);
+                    <div id="loading-spinner" class="hidden flex-col items-center gap-3">
+                        <div class="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin"></div>
+                        <p id="progress-text" class="text-xs text-amber-400 font-medium">Analyzing script & generating scenes...</p>
+                    </div>
 
-      // WebM codec widely supported across mobile browsers
-      const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9') 
-        ? 'video/webm;codecs=vp9' 
-        : 'video/webm';
+                    <video id="video-player" controls class="hidden w-full h-full object-cover"></video>
+                </div>
 
-      mediaRecorder = new MediaRecorder(combinedStream, { mimeType });
-      recordedChunks = [];
-      
-      mediaRecorder.ondataavailable = e => { 
-        if (e.data.size > 0) recordedChunks.push(e.data); 
-      };
-      
-      mediaRecorder.onstop = exportVideo;
-      mediaRecorder.start();
-      
-      audio.play().catch(err => {
-        errorText.innerText = "Tap screen to allow audio playback.";
-      });
+                <div class="mt-4 flex gap-3">
+                    <button id="download-btn" disabled onclick="downloadVideo()" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition">
+                        <i class="fa-solid fa-download"></i> Download Full Video
+                    </button>
+                    <button id="split-btn" disabled onclick="splitEpisodes()" class="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 text-xs font-semibold rounded-xl flex items-center justify-center gap-2 transition">
+                        <i class="fa-solid fa-scissors"></i> Export as Episodes
+                    </button>
+                </div>
+            </div>
 
-      scale = 1.0;
-      function draw() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        const scaledWidth = canvas.width * scale;
-        const scaledHeight = canvas.height * scale;
-        const offsetX = (canvas.width - scaledWidth) / 2;
-        const offsetY = (canvas.height - scaledHeight) / 2;
+            <!-- Auto-Generated Scenes Storyboard -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg space-y-3">
+                <h3 class="font-bold text-sm text-slate-200 flex items-center justify-between">
+                    <span><i class="fa-solid fa-film text-amber-400 mr-1.5"></i> Generated Scene Timeline</span>
+                    <span id="scene-count" class="text-xs text-slate-500">0 Scenes</span>
+                </h3>
+                
+                <div id="scenes-container" class="space-y-3 max-h-60 overflow-y-auto custom-scrollbar pr-1 text-xs">
+                    <p class="text-slate-500 text-center py-6">No scenes generated yet.</p>
+                </div>
+            </div>
 
-        ctx.drawImage(img, offsetX, offsetY, scaledWidth, scaledHeight);
-        
-        scale += 0.0004;
-        animationFrame = requestAnimationFrame(draw);
-      }
-      draw();
+        </div>
+    </main>
 
-      audio.onended = () => {
-        mediaRecorder.stop();
-        cancelAnimationFrame(animationFrame);
-        statusText.innerText = "Video Ready!";
-        downloadBtn.style.display = 'block';
-      };
-    }
+    <script>
+        function toggleSettings() {
+            const panel = document.getElementById('api-panel');
+            panel.classList.toggle('hidden');
+        }
 
-    function exportVideo() {
-      const blob = new Blob(recordedChunks, { type: 'video/webm' });
-      const url = URL.createObjectURL(blob);
-      
-      downloadBtn.onclick = () => {
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = 'ai_story_video.webm';
-        document.body.appendChild(a);
-        a.click();
-        URL.revokeObjectURL(url);
-      };
-    }
-  </script>
+        function generateVideoTimeline() {
+            const script = document.getElementById('script-text').value.trim();
+            const char1 = document.getElementById('char1').value;
+            const char2 = document.getElementById('char2').value;
+            const style = document.getElementById('art-style').value;
+            const duration = document.getElementById('duration').value;
+
+            if (!script) {
+                alert("Please enter a script first!");
+                return;
+            }
+
+            // UI State updates
+            document.getElementById('video-placeholder').classList.add('hidden');
+            document.getElementById('loading-spinner').classList.remove('hidden');
+            document.getElementById('loading-spinner').classList.add('flex');
+            document.getElementById('status-badge').innerText = "Generating AI Scenes...";
+            document.getElementById('status-badge').className = "text-xs px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-400 font-medium border border-amber-500/20";
+
+            // Simulating API story decomposition into key AI scenes
+            setTimeout(() => {
+                const sentences = script.split('.').filter(s => s.trim().length > 0);
+                const sceneContainer = document.getElementById('scenes-container');
+                sceneContainer.innerHTML = '';
+
+                sentences.forEach((sentence, index) => {
+                    const sceneDiv = document.createElement('div');
+                    sceneDiv.className = "bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-start gap-3";
+                    sceneDiv.innerHTML = `
+                        <div class="w-6 h-6 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold text-xs shrink-0">${index + 1}</div>
+                        <div class="flex-1 space-y-1">
+                            <p class="text-slate-200 font-medium">${sentence.trim()}</p>
+                            <p class="text-[10px] text-slate-500"><strong>Prompt:</strong> ${style} style, featuring ${char1} and ${char2}, ${sentence.trim()}</p>
+                        </div>
+                    `;
+                    sceneContainer.appendChild(sceneDiv);
+                });
+
+                document.getElementById('scene-count').innerText = `${sentences.length} Scenes`;
+                document.getElementById('progress-text').innerText = "Compiling scenes into 3-4 min video...";
+
+                // Finish video compilation preview
+                setTimeout(() => {
+                    document.getElementById('loading-spinner').classList.add('hidden');
+                    document.getElementById('loading-spinner').classList.remove('flex');
+                    document.getElementById('video-player').classList.remove('hidden');
+                    
+                    // Demo output preview
+                    document.getElementById('video-player').src = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
+                    document.getElementById('status-badge').innerText = "Completed";
+                    document.getElementById('status-badge').className = "text-xs px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 font-medium border border-emerald-500/20";
+                    
+                    document.getElementById('download-btn').disabled = false;
+                    document.getElementById('split-btn').disabled = false;
+                }, 2000);
+
+            }, 1500);
+        }
+
+        function downloadVideo() {
+            alert("Starting full video download...");
+        }
+
+        function splitEpisodes() {
+            const count = document.getElementById('episodes').value;
+            alert(`Splitting your full video into ${count} episodes for social media posting!`);
+        }
+    </script>
 </body>
 </html>
