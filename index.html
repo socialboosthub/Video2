@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AHM Studio - AI Video Generator</title>
+    <title>AHM Studio - Shotstack AI</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -15,7 +15,7 @@
             <div class="w-10 h-10 rounded-xl bg-amber-500 flex items-center justify-center font-black text-slate-950 text-xl">AHM</div>
             <div>
                 <h1 class="font-bold text-lg leading-none">AHM Studio</h1>
-                <span class="text-xs text-amber-400">Open-Source GPU Powered</span>
+                <span class="text-xs text-amber-400">Powered by Shotstack API</span>
             </div>
         </div>
     </header>
@@ -23,82 +23,157 @@
     <!-- Main Workspace -->
     <main class="max-w-4xl mx-auto p-4 w-full space-y-6">
 
-        <!-- GPU Connection Config -->
-        <div class="bg-slate-900 border border-amber-500/30 rounded-2xl p-4">
-            <label class="block text-xs text-amber-400 font-semibold mb-1">1. Paste RunPod GPU URL (Port 8188)</label>
-            <input type="text" id="gpu-url" placeholder="https://xxxx-8188.proxy.runpod.net" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:border-amber-500 outline-none">
+        <!-- API Config -->
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+            <label class="block text-xs text-slate-400 font-semibold mb-1">Shotstack API Key (Production)</label>
+            <input type="password" id="api-key" placeholder="Paste your API key here..." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:border-amber-500 outline-none">
         </div>
 
         <!-- Script Input -->
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-            <label class="block text-xs text-slate-400 font-semibold">2. Story Script</label>
-            <textarea id="script-text" rows="5" placeholder="Write your full character script here..." class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:border-amber-500 outline-none resize-none"></textarea>
+            <label class="block text-xs text-slate-400 font-semibold">Story Title / Scene Text</label>
+            <textarea id="script-text" rows="3" placeholder="e.g. Hello Shotstack - The Lemon Drama" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-200 focus:border-amber-500 outline-none resize-none"></textarea>
             
-            <button onclick="sendToGPU()" class="w-full py-3.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 text-sm shadow-lg shadow-amber-500/20">
-                <i class="fa-solid fa-bolt"></i> Generate Video via GPU
+            <button onclick="generateShotstackVideo()" class="w-full py-3.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl flex items-center justify-center gap-2 text-sm shadow-lg shadow-amber-500/20 transition">
+                <i class="fa-solid fa-clapperboard"></i> Render Video Scene
             </button>
         </div>
 
         <!-- Render Output -->
         <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-center">
             <h3 class="font-bold text-sm text-slate-200 mb-3 flex items-center justify-center gap-2">
-                <i class="fa-solid fa-film text-amber-400"></i> Rendered Output
+                <i class="fa-solid fa-satellite-dish text-amber-400"></i> Server Status & Output
             </h3>
             
-            <div id="status-box" class="text-xs text-slate-400 py-8 border border-dashed border-slate-800 rounded-xl">
-                Ready to generate. Enter your GPU URL and script above.
+            <div id="status-box" class="text-xs text-slate-400 py-6 border border-dashed border-slate-800 rounded-xl bg-slate-950/50">
+                Waiting for generation prompt...
             </div>
 
-            <video id="output-video" controls class="hidden w-full max-h-[450px] rounded-xl mt-3 object-cover"></video>
+            <video id="output-video" controls class="hidden w-full max-h-[450px] rounded-xl mt-3 border border-slate-800 shadow-xl"></video>
             
-            <a id="download-link" download="AHM_Studio_Video.mp4" class="hidden mt-4 inline-block w-full py-3 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl text-center">
-                Download Finished Video
+            <a id="download-link" target="_blank" class="hidden mt-4 inline-block w-full py-3 bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl text-center shadow-lg shadow-emerald-500/20 transition">
+                Download MP4 File
             </a>
         </div>
 
     </main>
 
     <script>
-        async function sendToGPU() {
-            const gpuUrl = document.getElementById('gpu-url').value.trim();
-            const script = document.getElementById('script-text').value.trim();
+        async function generateShotstackVideo() {
+            const apiKey = document.getElementById('api-key').value.trim();
+            const textContent = document.getElementById('script-text').value.trim();
             const statusBox = document.getElementById('status-box');
-
-            if (!gpuUrl || !script) {
-                alert("Please provide both your RunPod GPU URL and script!");
+            
+            if (!apiKey || !textContent) {
+                alert("Bro, you need to enter both an API key and some text!");
                 return;
             }
 
-            statusBox.innerHTML = '<span class="text-amber-400"><i class="fa-solid fa-spinner animate-spin"></i> Connecting to RunPod GPU & rendering video frames...</span>';
+            // 1. Prepare UI for loading
+            statusBox.innerHTML = '<span class="text-amber-400"><i class="fa-solid fa-spinner animate-spin"></i> Submitting to Shotstack Cloud...</span>';
+            document.getElementById('output-video').classList.add('hidden');
+            document.getElementById('download-link').classList.add('hidden');
+
+            // 2. Build the exact JSON payload
+            const payload = {
+                "timeline": {
+                    "background": "#020617",
+                    "tracks": [
+                        {
+                            "clips": [
+                                {
+                                    "asset": {
+                                        "type": "text",
+                                        "text": textContent,
+                                        "color": "#eab308",
+                                        "size": "large"
+                                    },
+                                    "start": 0,
+                                    "length": 5,
+                                    "transition": {
+                                        "in": "fade",
+                                        "out": "fade"
+                                    }
+                                }
+                            ]
+                        }
+                    ]
+                },
+                "output": {
+                    "format": "mp4",
+                    "resolution": "hd"
+                }
+            };
 
             try {
-                // Formatting payload for Wan 2.1 / ComfyUI API endpoint
-                const response = await fetch(`${gpuUrl}/prompt`, {
+                // 3. Send POST request to start rendering
+                const response = await fetch('https://api.shotstack.io/edit/v1/render', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        prompt: {
-                            "1": { "class_type": "WanTextToVideo", "inputs": { "prompt": script } }
-                        }
-                    })
+                    headers: {
+                        'x-api-key': apiKey,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
                 });
 
-                if (response.ok) {
-                    statusBox.innerHTML = '<span class="text-emerald-400"><i class="fa-solid fa-check"></i> Generation finished! Video loaded below.</span>';
-                    const videoPlayer = document.getElementById('output-video');
-                    const downloadBtn = document.getElementById('download-link');
-                    
-                    // Route to generated stream
-                    videoPlayer.src = `${gpuUrl}/view?filename=output.mp4`;
-                    videoPlayer.classList.remove('hidden');
-                    downloadBtn.href = `${gpuUrl}/view?filename=output.mp4`;
-                    downloadBtn.classList.remove('hidden');
-                } else {
-                    throw new Error("GPU Server connection failed.");
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.message || "Failed to trigger Shotstack API.");
                 }
-            } catch (err) {
-                statusBox.innerHTML = `<span class="text-red-400"><i class="fa-solid fa-triangle-exclamation"></i> Error: ${err.message}. Make sure your RunPod GPU is active.</span>`;
+
+                const renderId = data.response.id;
+                statusBox.innerHTML = `<span class="text-blue-400"><i class="fa-solid fa-rotate animate-spin"></i> Rendering started! ID: ${renderId}. Waiting for MP4 generation...</span>`;
+
+                // 4. Poll the server every 3 seconds to check if it is done
+                checkRenderStatus(renderId, apiKey);
+
+            } catch (error) {
+                statusBox.innerHTML = `<span class="text-red-400"><i class="fa-solid fa-triangle-exclamation"></i> Error: ${error.message}</span>`;
             }
+        }
+
+        async function checkRenderStatus(renderId, apiKey) {
+            const statusBox = document.getElementById('status-box');
+
+            const timer = setInterval(async () => {
+                try {
+                    const response = await fetch(`https://api.shotstack.io/edit/v1/render/${renderId}`, {
+                        method: 'GET',
+                        headers: {
+                            'x-api-key': apiKey
+                        }
+                    });
+
+                    const data = await response.json();
+                    const status = data.response.status;
+
+                    if (status === 'done') {
+                        clearInterval(timer);
+                        statusBox.innerHTML = '<span class="text-emerald-400"><i class="fa-solid fa-circle-check"></i> Render Complete! Video is ready.</span>';
+                        
+                        const videoUrl = data.response.url;
+                        const videoPlayer = document.getElementById('output-video');
+                        const downloadLink = document.getElementById('download-link');
+
+                        videoPlayer.src = videoUrl;
+                        videoPlayer.classList.remove('hidden');
+
+                        downloadLink.href = videoUrl;
+                        downloadLink.classList.remove('hidden');
+                        
+                    } else if (status === 'failed') {
+                        clearInterval(timer);
+                        statusBox.innerHTML = '<span class="text-red-400"><i class="fa-solid fa-circle-xmark"></i> Rendering failed on Shotstack servers.</span>';
+                    } else {
+                        // Still rendering, update the UI with percentage if available or just a visual cue
+                        statusBox.innerHTML = `<span class="text-blue-400"><i class="fa-solid fa-rotate animate-spin"></i> Shotstack is currently rendering... Status: ${status.toUpperCase()}</span>`;
+                    }
+                } catch (error) {
+                    clearInterval(timer);
+                    statusBox.innerHTML = `<span class="text-red-400"><i class="fa-solid fa-wifi"></i> Lost connection while checking status.</span>`;
+                }
+            }, 3000); // Checks every 3 seconds
         }
     </script>
 </body>
