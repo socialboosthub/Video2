@@ -118,9 +118,15 @@
 
                 const data = await response.json();
 
-                if (!response.ok) {
-                    throw new Error(data.message || "Failed to trigger Shotstack API.");
-                }
+             if (!response.ok) {
+    let errorDetail = data.message || "API Error";
+    // This digs into Shotstack's payload to find the exact validation rule you broke
+    if (data.response && data.response.error && data.response.error.details) {
+        errorDetail += " - " + data.response.error.details[0].message; 
+    }
+    throw new Error(errorDetail);
+}
+
 
                 const renderId = data.response.id;
                 statusBox.innerHTML = `<span class="text-blue-400"><i class="fa-solid fa-rotate animate-spin"></i> Rendering started! ID: ${renderId}. Waiting for MP4 generation...</span>`;
