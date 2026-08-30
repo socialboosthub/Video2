@@ -184,49 +184,83 @@ $("#newProject").onclick=()=>{story.value="";characters=[];renderCharacters();up
 
 function parseScript(text){
   const lines=text.replace(/\r/g,"").split("\n");
-  const global=[];
   let style="", constraints=[];
-  let scenes=[], cur=null, section="";
+  let scenes=[], cur=null, section="", curSpeaker=null;
+
   for(let i=0;i<lines.length;i++){
-    const raw=lines[i], line=raw.trim();
+    const line=lines[i].trim();
+    
+    // 1. Detect Scene Headings
     const sceneMatch=line.match(/^SCENE\s+(\d+)\s*(?:—|-|:)\s*(.*)$/i);
     if(sceneMatch){
       cur={num:+sceneMatch[1],title:sceneMatch[2].trim()||`Scene ${sceneMatch[1]}`,location:"",action:[],dialogue:[],characters:new Set(),shots:[]};
-      scenes.push(cur); section="action"; continue;
+      scenes.push(cur); section="action"; curSpeaker=null; continue;
     }
+
+    // 2. Detect Global Styles before Scene 1
     if(!cur){
       if(/^STYLE\s*:/i.test(line)) style=line.replace(/^STYLE\s*:/i,"").trim();
       else if(/^IMPORTANT\s*:/i.test(line)) constraints.push(line.replace(/^IMPORTANT\s*:/i,"").trim());
       continue;
     }
+
+    // Skip empty lines and divider lines
+    if(!line || /^---+$/.test(line)) continue;
+
+    // 3. Detect Location
     const loc=line.match(/^LOCATION\s*:\s*(.*)$/i);
-    if(loc){cur.location=loc[1];section="location";continue}
-    if(/^ACTION\s*:\s*$/i.test(line)){section="action";continue}
-    if(/^DIALOGUE\s*:\s*$/i.test(line)){section="dialogue";continue}
+    if(loc){cur.location=loc[1];section="location"; curSpeaker=null; continue;}
+
+    if(/^ACTION\s*:\s*$/i.test(line)){section="action"; curSpeaker=null; continue;}
+
+    // 4. Detect Character Name for Dialogue (e.g., "MARA:")
     const d=line.match(/^([A-Z][A-Z0-9 _-]{1,40})\s*:\s*(.*)$/);
     if(d && !/^(LOCATION|ACTION|STYLE|IMPORTANT|CAMERA|AUDIO|ENVIRONMENT|EMOTION|CONTINUITY)$/i.test(d[1])){
-      const speaker=d[1].trim(), text=d[2].trim().replace(/^["“]|["”]$/g,"");
-      if(text){cur.dialogue.push({speaker,text});cur.characters.add(speaker)}
-      section="dialogue";continue
+      curSpeaker=d[1].trim();
+      const text=d[2].trim().replace(/^["“]|["”]$/g,"");
+      if(text){ // If dialogue is on the same line
+        cur.dialogue.push({speaker:curSpeaker,text});
+        cur.characters.add(curSpeaker);
+        curSpeaker=null;
+      }
+      section="dialogue";
+      continue;
     }
-    if(line && !/^---+$/.test(line)){
-      if(section==="location" && !cur.location) cur.location=line;
-      else if(section!=="dialogue") cur.action.push(line);
+
+    // 5. Capture the spoken words on the line below the character name
+    if(section==="dialogue" && curSpeaker){
+       const text=line.replace(/^["“]|["”]$/g,"");
+       cur.dialogue.push({speaker:curSpeaker,text});
+       cur.characters.add(curSpeaker);
+       curSpeaker=null;
+       continue;
+    }
+
+    // 6. Otherwise, it's action text or a location continuation
+    if(section==="location" && !cur.location) {
+        cur.location=line;
+    } else {
+        section="action";
+        cur.action.push(line);
     }
   }
-  // Infer characters from dialogue + supplied character cards; never invent story scenes.
+
+  // Infer characters and auto-build generation shots based on action lines
   const known=characters.map(c=>c.name.toUpperCase()).filter(Boolean);
   scenes.forEach(s=>{
     known.forEach(k=>{if(s.dialogue.some(d=>d.speaker===k))s.characters.add(k)});
     if(!s.characters.size){
-      // Conservative inference from action text only.
       known.forEach(k=>{if(s.action.join(" ").toUpperCase().includes(k))s.characters.add(k)});
     }
     const text=(s.action.join(" ")+" "+s.dialogue.map(d=>d.text).join(" ")).trim();
     s.shots=makeShots(s,text);
   });
+  
   return {style,constraints,scenes};
 }
+
+
+
 function makeShots(s,text){
   const words=Math.max(1,text.split(/\s+/).length);
   const n=Math.max(2,Math.min(8,Math.ceil(words/32)));
