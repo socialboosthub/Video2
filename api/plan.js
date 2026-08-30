@@ -1,1 +1,12 @@
-export default async function handler(req,res){if(req.method!=='POST')return res.status(405).json({error:'Method not allowed'});const p=req.body||{},story=String(p.story||'').trim();if(story.length<40)return res.status(400).json({error:'Story too short'});const duration=Math.min(240,Math.max(60,Number(p.settings?.duration||240))),count=Math.max(10,Math.min(48,Math.round(duration/6))),sent=(story.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[]).map(x=>x.trim()).filter(Boolean),chars=(p.characters||[]).map(x=>x.name).filter(Boolean),beats=['Setup','Discovery','Rising action','Turning point','Confrontation','Climax','Resolution'],scenes=[];for(let i=0;i<count;i++){const start=Math.round(i*duration/count),end=Math.round((i+1)*duration/count),pr=i/(count-1||1),src=sent[Math.min(sent.length-1,Math.floor(pr*sent.length))]||story,beat=beats[Math.min(beats.length-1,Math.floor(pr*beats.length))];let who=chars.filter(n=>new RegExp('\\b'+n.replace(/[.*+?^${}()|[\\]\\]/g,'\\$&')+'\\b','i').test(src));if(!who.length)who=chars.slice(0,2);scenes.push({number:i+1,start,end,beat,title:beat+' — '+src.replace(/[^a-zA-Z0-9 ,'-]/g,'').slice(0,45),characters:who,action:src,camera:i%4===0?'Wide establishing shot':i%4===1?'Tracking medium shot':i%4===2?'Over-the-shoulder shot':'Emotional close-up',environment:'Maintain established location, lighting, time and visual style.',emotion:beat==='Climax'?'High tension':beat==='Resolution'?'Relief':'Natural story emotion',continuity:'Keep character identity, clothing, age, props and environment consistent.',dialogue:p.settings?.preserveScript?'Derive dialogue from the supplied story without contradicting it.':'Expand natural dialogue while preserving story intent.'})}return res.status(200).json({mode:'director-v2',title:story.split(/[.!?]/)[0].slice(0,60)||'AHM Story',estimatedDuration:duration,sceneCount:count,storyArc:{setup:'Introduce the world, protagonist and normal life.',rising:'Build the central problem and escalating consequences.',climax:'Deliver the major confrontation or emotional peak.',resolution:'Resolve the story and land its final meaning.'},scenes})}
+export default function handler(req,res){
+  if(req.method!=="POST") return res.status(405).json({error:"POST only"});
+  // This endpoint intentionally validates/queues a future worker job.
+  // The browser has a complete local parser for development mode.
+  const body=req.body||{};
+  return res.status(200).json({
+    ok:true,
+    status:"planned",
+    message:"AHM Director package accepted. Connect this endpoint to the GPU worker when RunPod is funded.",
+    projectId:"ahm_"+Date.now()
+  });
+}
