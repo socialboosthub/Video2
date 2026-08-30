@@ -1,12 +1,90 @@
-<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AHM Studio</title><link rel="stylesheet" href="style.css"></head><body>
-<header><div class="brand"><b>A</b><div><strong>AHM <span>STUDIO</span></strong><small>AI STORY VIDEO MAKER</small></div></div><button id="newBtn">＋ New Project</button></header><main>
-<section class="hero"><div><p>CREATE • DIRECT • GENERATE</p><h1>Turn your story into a <em>full video.</em></h1><div class="sub">Write the story once. AHM plans a continuous story with scenes, characters, dialogue, cameras and production instructions.</div></div><label class="status">● Director V2</label></section>
-<section class="card"><div class="title"><div><small>01</small><h2>Your Story</h2></div><span id="words">0 words</span></div><textarea id="story" placeholder="Write or paste your complete story here..."></textarea><div class="row"><label>Story language<select id="language"><option>English</option><option>Swahili</option><option>Arabic</option><option>French</option></select></label><label>Pacing<select id="pacing"><option>Natural cinematic</option><option>Fast / viral</option><option>Emotional / dramatic</option><option>Slow / atmospheric</option></select></label></div><p class="hint">AHM keeps the main story faithful while turning it into connected cinematic scenes.</p></section>
-<section class="card"><div class="title"><div><small>02</small><h2>Characters</h2></div><button id="addBtn">＋ Add Character</button></div><div id="chars" class="grid"></div></section>
-<section class="card"><div class="title"><div><small>03</small><h2>Video Settings</h2></div></div><div class="settings"><label>Visual Style<select id="style"><option>Cinematic 3D</option><option>Realistic Cinematic</option><option>Stylized Cartoon</option><option>Anime</option><option>Storybook</option><option>Fantasy 3D</option></select></label><label>Format<select id="format"><option value="9:16">9:16 — TikTok / Reels / Shorts</option><option value="16:9">16:9 — YouTube</option><option value="1:1">1:1 — Square</option></select></label><label>Target Length<select id="duration"><option value="60">1 minute</option><option value="120">2 minutes</option><option value="180">3 minutes</option><option value="240" selected>4 minutes</option></select></label><label>Voice Mode<select id="voice"><option>Auto assign character voices</option><option>Male / Female by character</option><option>Single narrator</option></select></label></div></section>
-<section class="card"><button id="advanced" class="advance">⚙ Advanced production options <span>＋</span></button><div id="advancedPanel" class="hidden checks"><label><input id="subs" type="checkbox" checked> Burn subtitles into final video</label><label><input id="music" type="checkbox" checked> Add background music</label><label><input id="sfx" type="checkbox" checked> Add cinematic sound effects</label><label><input id="faithful" type="checkbox" checked> Keep dialogue/story faithful to my script</label><label><input id="consistency" type="checkbox" checked> Enforce character consistency</label><label><input id="continuity" type="checkbox" checked> Enforce scene continuity</label></div></section>
-<section class="generate"><button id="generate">🧠 BUILD AI DIRECTOR PLAN</button><p>Planning is free. GPU generation will be connected next.</p></section>
-<section id="director" class="card hidden"><div class="title"><div><small>04</small><h2>AI Director V2</h2></div><span id="summary">Planning…</span></div><div id="directorStatus" class="notice"></div><div id="storyArc" class="arc"></div><div id="scenes"></div><div class="actions"><button id="regen">↻ Rebuild Plan</button><button id="render">🎬 Prepare GPU Generation</button></div></section>
-<section id="renderBox" class="card hidden"><div class="title"><div><small>05</small><h2>Production Queue</h2></div><span id="percent">0%</span></div><div class="track"><div id="bar"></div></div><h3 id="stage">Waiting…</h3><div id="log" class="log"></div></section>
-<section id="result" class="card hidden"><div class="success">✓</div><p>PLAN READY</p><h2>Your production package is ready</h2><div class="preview"><b>🎬</b><span id="previewTitle"></span></div><div class="actions"><button id="download">⬇ Download Director Plan</button><button id="again">＋ Create Another Video</button></div></section></main><footer><span>AHM Studio V2</span><span>AI story video production system</span></footer>
-<div id="modal" class="modal hidden"><div class="backdrop"></div><div class="modalBox"><button id="close">×</button><p>CHARACTER DESIGNER</p><h2>Add a Character</h2><label>Name<input id="cName" placeholder="e.g. Adam"></label><label>Age / role<input id="cAge" placeholder="Young fisherman"></label><label>Appearance<input id="cAppearance" placeholder="Dark hair, blue shirt"></label><label>Personality<input id="cPersonality" placeholder="Kind, brave, emotional"></label><label>Voice<input id="cVoice" placeholder="Warm male voice"></label><button id="save" class="mainBtn">Save Character</button></div></div><div id="toast"></div><script src="app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#07070b">
+  <title>AHM Studio — AI Story Video Maker</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="brand-mark">A</span><div><b>AHM STUDIO</b><small>AI STORY VIDEO MAKER</small></div></div>
+  <button id="newProject" class="ghost">＋ New Project</button>
+</header>
+
+<main>
+  <section class="hero">
+    <div>
+      <span class="eyebrow">CREATE • DIRECT • GENERATE</span>
+      <h1>Turn your screenplay into a production-ready AI movie.</h1>
+      <p>Paste your own scenes. AHM preserves your story, dialogue, characters and production instructions instead of chopping the screenplay into random scenes.</p>
+    </div>
+    <span class="status"><i></i> Director V3</span>
+  </section>
+
+  <section class="card">
+    <div class="section-head"><div><span class="step">01</span><h2>Your Script</h2></div><span id="wordCount">0 words</span></div>
+    <textarea id="story" spellcheck="false" placeholder="Paste your complete screenplay here…
+
+SCENE 1 — TITLE
+LOCATION:
+ACTION:
+CHARACTER:
+“Dialogue…”
+
+SCENE 2 — TITLE
+..."></textarea>
+    <div class="script-tools">
+      <button id="sampleBtn" class="secondary">Load Golden Fish Test</button>
+      <button id="clearBtn" class="secondary">Clear</button>
+      <span class="hint">Tip: AHM recognizes SCENE, LOCATION, ACTION, CHARACTER dialogue, STYLE and global constraints.</span>
+    </div>
+  </section>
+
+  <section class="grid2">
+    <div class="card">
+      <div class="section-head"><div><span class="step">02</span><h2>Characters</h2></div><button id="addCharacter" class="secondary">＋ Add Character</button></div>
+      <div id="characters"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-head"><div><span class="step">03</span><h2>Production</h2></div></div>
+      <label>Visual Style<select id="visualStyle"><option>Cinematic Live Action</option><option>Cinematic 3D</option><option>Stylized Animation</option><option>Anime Cinematic</option><option>Photoreal Fantasy</option></select></label>
+      <label>Format<select id="format"><option value="9:16">9:16 — TikTok / Reels / Shorts</option><option value="16:9">16:9 — YouTube / Film</option><option value="1:1">1:1 — Square</option></select></label>
+      <label>Target Length<select id="length"><option>Auto</option><option>1 minute</option><option>2 minutes</option><option>3 minutes</option><option selected>4 minutes</option><option>5 minutes</option><option>10 minutes</option></select></label>
+      <label>Dialogue Mode<select id="voiceMode"><option>Use Script Dialogue Exactly</option><option>AI polish without changing meaning</option></select></label>
+      <label class="check"><input type="checkbox" id="noNarrator" checked> No narrator / no voice-over unless script explicitly requests it</label>
+    </div>
+  </section>
+
+  <section class="card director">
+    <div class="director-head">
+      <div><span class="step">04</span><h2>AI Director</h2><p id="planSummary">Paste a screenplay and build its production plan.</p></div>
+      <div class="director-actions"><button id="buildPlan" class="primary">🧠 BUILD AI DIRECTOR PLAN</button><button id="prepare" class="secondary" disabled>🎬 Prepare GPU Generation</button></div>
+    </div>
+    <div id="plan" class="empty">Your original story scenes will appear here. AHM will not replace your 15 screenplay scenes with artificial 6-second story scenes.</div>
+  </section>
+
+  <section id="generation" class="card hidden">
+    <div class="section-head"><div><span class="step">05</span><h2>Generation</h2></div><span id="genStatus">Waiting</span></div>
+    <div class="progress"><span id="progressBar"></span></div>
+    <div id="logs" class="logs"></div>
+  </section>
+</main>
+
+<template id="characterTemplate">
+  <div class="character">
+    <button class="remove" title="Remove">×</button>
+    <div class="char-avatar">?</div>
+    <div class="char-fields">
+      <input class="char-name" placeholder="Character name">
+      <input class="char-role" placeholder="Role / age">
+      <textarea class="char-look" placeholder="Appearance, clothing, personality and voice"></textarea>
+    </div>
+  </div>
+</template>
+
+<script src="/app.js"></script>
+</body>
+</html>

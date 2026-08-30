@@ -1,1 +1,7 @@
-{"version":2}
+{
+  "version": 2,
+  "cleanUrls": true,
+  "functions": {
+    "api/*.js": { "runtime": "nodejs20.x" }
+  }
+}
