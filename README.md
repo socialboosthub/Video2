@@ -1,24 +1,55 @@
-# AHM Studio V3
+# AHM Studio V4
 
-This version fixes the screenplay parser problem.
+This package is a rebuilt frontend/director prototype for AHM Studio.
 
-## What it does now
-- Preserves the user's original `SCENE 1`, `SCENE 2`, etc.
-- Extracts LOCATION, ACTION and character dialogue.
-- Keeps global STYLE and IMPORTANT constraints.
-- Builds internal short generation shots without turning them into new story scenes.
-- Calculates target duration from the selected final-video length.
-- Shows character/voice/continuity locks.
-- Mobile-friendly.
-- Vercel-compatible.
-- GPU generation remains disconnected until the RunPod worker is ready.
+## What is actually working now
 
-## Deploy
-1. Upload these files to the GitHub repository root.
-2. Commit to `main`.
-3. Vercel redeploys automatically.
-4. Open the site and paste your full screenplay.
-5. Press **BUILD AI DIRECTOR PLAN**.
+- Proper screenplay parsing with original SCENE headings preserved.
+- Dialogue extraction separated from action.
+- No fake conversion of every line into a story scene.
+- Internal GPU shots are production units, not story scenes.
+- Character Library saved in browser localStorage.
+- Edit/delete saved characters.
+- Add saved characters to a project.
+- Mobile-first interface.
+- 9:16 / 16:9 / 1:1.
+- 1–10 minute target.
+- Duration allocation weighted by action/dialogue rather than blindly dividing equally.
+- Director plan contains continuity locks and GPU shot map.
+- Generation API gateway prepared for a real GPU worker.
+- Settings page contains a place to enter credentials for development, while the recommended production method is Vercel Environment Variables.
 
-## Next GPU stage
-Connect `/api/generate` to the RunPod worker and use the returned shot package to create clips, TTS, subtitles and an FFmpeg final MP4.
+## IMPORTANT ABOUT REAL VIDEO GENERATION
+
+The browser and Vercel serverless function cannot magically generate a 4-minute AI movie by themselves. A GPU worker is still required.
+
+When funded, deploy a worker that exposes:
+
+POST / -> { status:"queued", jobId }
+GET /?jobId=... -> { status:"running", progress:50, message:"...", videoUrl:"..." }
+
+Set these Vercel Environment Variables:
+
+AHM_WORKER_URL=https://your-worker-endpoint
+AHM_WORKER_TOKEN=your-secret-token
+
+Do not put a RunPod/private API key into public client JavaScript.
+
+## Suggested worker pipeline
+
+1. Receive AHM project + director plan.
+2. Generate or retrieve locked character references.
+3. Generate shot clips with the selected video model.
+4. Use image/video conditioning to preserve characters where supported.
+5. Generate character dialogue/TTS.
+6. Mix dialogue, music and SFX.
+7. Assemble shots in exact story order with FFmpeg.
+8. Burn subtitles if requested.
+9. Upload final MP4 to object storage.
+10. Return a download URL.
+
+The exact video model and GPU settings should be selected after checking the current model requirements and the rented GPU's VRAM. Do not pay for a long run until a short end-to-end test succeeds.
+
+## Deployment
+
+Upload the files to the GitHub repository root (keep api/generate.js at api/generate.js), connect the repo to Vercel, and deploy.
