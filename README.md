@@ -53,7 +53,3 @@ The exact video model and GPU settings should be selected after checking the cur
 ## Deployment
 
 Upload the files to the GitHub repository root (keep api/generate.js at api/generate.js), connect the repo to Vercel, and deploy.
-
-
-## Director Trial
-TRY DIRECTOR FREE opens a local planning-only trial. It does not call the GPU or consume API credits. Copy the result and send it for review.
