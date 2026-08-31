@@ -8,6 +8,40 @@
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+
+<button id="trialDirectorBtn" class="primary" type="button">🧪 TRY DIRECTOR FREE</button>
+<div id="trialDirectorModal" class="ahm-modal" aria-hidden="true">
+<div class="ahm-modal-card"><button id="trialDirectorClose" class="ahm-modal-close" type="button">×</button>
+<h2>🧪 AHM Director Trial</h2><p>Free planning test — no GPU, API key, or paid generation.</p>
+<textarea id="trialStory" rows="14">SCENE 1 — THE GOLDEN FISH
+
+LOCATION:
+Small fishing village beside the ocean at sunrise.
+
+ACTION:
+Elias walks toward his old boat carrying a fishing net. Mara watches from the doorway, worried.
+
+DIALOGUE:
+MARA: "Elias, please... catch something today."
+ELIAS: "I will. Don't worry."
+
+EMOTION:
+Elias is calm and determined. Mara is worried but loving.
+
+CAMERA:
+Wide establishing shot, medium tracking shot, emotional close-up.
+
+SOUND:
+Ocean waves and morning wind.</textarea>
+<div class="trial-actions"><button id="trialBuild" type="button">🧠 BUILD TRIAL PLAN</button><button id="trialCopy" type="button" disabled>📋 COPY RESULT</button></div>
+<pre id="trialResult">Your Director result will appear here.</pre></div></div>
+<style>
+.ahm-modal{display:none;position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.8);align-items:center;justify-content:center;padding:14px}.ahm-modal.open{display:flex}.ahm-modal-card{position:relative;width:min(760px,100%);max-height:92vh;overflow:auto;background:#111;color:#fff;border:1px solid #444;border-radius:18px;padding:22px}.ahm-modal-close{position:absolute;right:10px;top:8px;width:44px;height:44px;border:0;border-radius:50%;background:#222;color:#fff;font-size:30px;cursor:pointer}.ahm-modal textarea{width:100%;box-sizing:border-box;background:#080808;color:#fff;border:1px solid #444;border-radius:12px;padding:12px;font:inherit}.trial-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}.trial-actions button{padding:12px 16px;border:0;border-radius:10px;cursor:pointer;font-weight:700}.ahm-modal pre{white-space:pre-wrap;background:#080808;border:1px solid #333;border-radius:12px;padding:14px;max-height:42vh;overflow:auto;font-size:13px}
+</style>
+<script>
+(()=>{const m=document.getElementById('trialDirectorModal'),o=document.getElementById('trialDirectorBtn'),x=document.getElementById('trialDirectorClose'),b=document.getElementById('trialBuild'),c=document.getElementById('trialCopy'),t=document.getElementById('trialStory'),r=document.getElementById('trialResult');if(!o)return;const open=()=>{m.classList.add('open');m.setAttribute('aria-hidden','false')},close=()=>{m.classList.remove('open');m.setAttribute('aria-hidden','true')};o.onclick=open;x.onclick=close;m.onclick=e=>{if(e.target===m)close()};document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});b.onclick=()=>{let s=t.value.trim(),lines=s.split(/\r?\n/),d=[];for(const q of lines){let z=q.match(/^\s*([A-Z][A-Z0-9 _-]{1,30})\s*:\s*["“]?(.+?)["”]?\s*$/);if(z)d.push(z[1]+': "'+z[2]+'"')}let title=(s.match(/SCENE\s*\d+\s*[—-]\s*(.+)/i)||[])[1]||'Untitled Story';let get=n=>{let z=s.match(new RegExp('(?:^|\\n)\\s*'+n+'\\s*:\\s*\\n([\\s\\S]*?)(?=\\n\\s*[A-Z][A-Z _-]+\\s*:\\s*\\n|$)','i'));return z?z[1].trim():''};r.textContent=['AHM DIRECTOR TRIAL — PLAN ONLY','================================','TITLE: '+title,'','SCENE 01','LOCATION: '+(get('LOCATION')||'Infer from screenplay'),'ACTION: '+(get('ACTION')||'Infer from screenplay'),'EMOTION: '+(get('EMOTION')||'Natural story emotion'),'CAMERA: '+(get('CAMERA')||'Establishing → medium → close-up'),'SOUND: '+(get('SOUND')||'Natural environment sound'),'','DIALOGUE:',...(d.length?d:['No explicit dialogue detected.']),'','CONTINUITY LOCKS:','• Preserve face, age, clothing, voice and proportions.','• Preserve environment and lighting unless the story changes them.','• Do not invent major events.','• Keep dialogue faithful to the script.','','GPU HANDOFF:','Structured planning only. NO VIDEO GENERATED. NO API KEY USED.'].join('\n');c.disabled=false};c.onclick=async()=>{try{await navigator.clipboard.writeText(r.textContent)}catch(e){let q=document.createElement('textarea');q.value=r.textContent;document.body.appendChild(q);q.select();document.execCommand('copy');q.remove()}c.textContent='✅ COPIED';setTimeout(()=>c.textContent='📋 COPY RESULT',1200)}})();
+</script>
+
 <header class="topbar">
   <div class="brand"><span class="brand-mark">A</span><div><b>AHM STUDIO</b><small>AI FILM STUDIO • V4</small></div></div>
   <div class="top-actions">
