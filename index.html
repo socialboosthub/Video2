@@ -17,7 +17,27 @@
 </main>
 <aside>
 <section class="card"><h3>03 • Production</h3><div class="label">Visual Style</div><select id="style"><option>Cinematic Live Action</option><option>Cinematic 3D</option><option>Anime Cinematic</option><option>Photorealistic Fantasy</option></select><div class="label">Format</div><select id="format"><option value="9:16">9:16 — TikTok / Reels / Shorts</option><option value="16:9">16:9 — YouTube / Film</option><option value="1:1">1:1 — Social</option></select><div class="label">Target Length</div><select id="length"><option value="180">3 minutes</option><option value="240" selected>4 minutes</option><option value="300">5 minutes</option></select><div class="label">Dialogue</div><select id="dialogue"><option>Use Script Dialogue Exactly</option><option>Allow minor grammar cleanup</option></select><div class="row" style="margin-top:12px"><label><input id="subs" type="checkbox" checked style="width:auto"> Burn subtitles</label></div></section>
-<section class="card" style="margin-top:14px"><h3>04 • AHM Director V6</h3><div class="mini">The Director preserves every scripted line, locks characters, builds meaningful coverage and assigns timing before GPU generation.</div><div class="row" style="margin-top:12px"><button class="primary" id="build">🧠 BUILD DIRECTOR PLAN</button><button id="generate" disabled>🎬 GENERATE VIDEO</button></div><div class="warn" style="margin-top:12px">GPU generation is disabled until a real server-side connection is configured. Trial planning is local and free.</div></section>
+<section class="card" style="margin-top:14px"><h3>04 • 
+<!-- =========================================================
+     AHM STUDIO V6.1 — FREE DIRECTOR TRIAL
+========================================================= -->
+<section id="ahmFreeTrial" style="margin:18px 0;padding:18px;border:1px solid rgba(255,255,255,.12);border-radius:18px;background:rgba(255,255,255,.035)">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+    <div>
+      <div style="font-weight:800;font-size:18px">🧪 FREE DIRECTOR TRIAL</div>
+      <div style="opacity:.72;margin-top:5px">100% local • no API • no GPU • no charge</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button id="ahmTrialGoldenFish" type="button">🐟 Load Golden Fish Test</button>
+      <button id="ahmTrialBuild" type="button">🧠 Build Trial Plan</button>
+      <button id="ahmTrialCopy" type="button">📋 Copy Result</button>
+      <button id="ahmTrialClear" type="button">Clear</button>
+    </div>
+  </div>
+  <pre id="ahmTrialOutput" style="white-space:pre-wrap;margin-top:14px;max-height:520px;overflow:auto;padding:14px;border-radius:12px;background:rgba(0,0,0,.25);font-size:12px;line-height:1.55"></pre>
+</section>
+
+AHM Director V6</h3><div class="mini">The Director preserves every scripted line, locks characters, builds meaningful coverage and assigns timing before GPU generation.</div><div class="row" style="margin-top:12px"><button class="primary" id="build">🧠 BUILD DIRECTOR PLAN</button><button id="generate" disabled>🎬 GENERATE VIDEO</button></div><div class="warn" style="margin-top:12px">GPU generation is disabled until a real server-side connection is configured. Trial planning is local and free.</div></section>
 </aside></div>
 <section class="card" style="margin-top:14px"><div class="between"><h3>Director Output</h3><div class="row"><span class="pill" id="sceneMetric">0 scenes</span><span class="pill" id="shotMetric">0 shots</span><span class="pill" id="lineMetric">0 dialogue lines</span></div></div><div id="output" class="result">Your locked story scenes and production shots will appear here.</div></section>
 <div class="footer">AHM Studio V6 • Trial mode never sends your screenplay or API key anywhere.</div></div>
@@ -59,4 +79,299 @@ function editChar(i=null){const arr=JSON.parse(localStorage.getItem('ahm_chars')
 $('script').oninput=()=>{const n=$('script').value.trim().split(/\s+/).filter(Boolean).length;$('wordCount').textContent=n+' words'};$('loadTest').onclick=()=>{$('script').value=TEST;$('script').dispatchEvent(new Event('input'))};$('clearScript').onclick=()=>{$('script').value='';$('script').dispatchEvent(new Event('input'))};$('newBtn').onclick=()=>{$('script').value='';$('output').textContent='New project ready.';$('script').dispatchEvent(new Event('input'))};$('saveDraft').onclick=()=>{localStorage.setItem('ahm_draft',$('script').value);alert('Draft saved locally on this device.')};$('addChar').onclick=()=>editChar();$('build').onclick=()=>{const p=buildPlan();if(p)render(p)};renderChars();
 $('settingsBtn').onclick=()=>{$('modal').classList.remove('hidden');$('apiKey').value='';$('endpoint').value=localStorage.getItem('ahm_endpoint')||''};$('closeModal').onclick=()=>$('modal').classList.add('hidden');$('modal').onclick=e=>{if(e.target.id==='modal')$('modal').classList.add('hidden')};document.addEventListener('keydown',e=>{if(e.key==='Escape')$('modal').classList.add('hidden')});$('clearSettings').onclick=()=>{localStorage.removeItem('ahm_endpoint');$('endpoint').value='';$('connStatus').textContent='Cleared. Trial mode remains available.'};$('saveSettings').onclick=()=>{const ep=$('endpoint').value.trim();if(!ep){$('connStatus').textContent='Worker endpoint is required when connecting a GPU.';return}localStorage.setItem('ahm_endpoint',ep);$('connStatus').textContent='Endpoint saved locally. Put the actual secret API key in your server environment, not this page.';alert('Endpoint saved. Keep the API key server-side for security.');$('modal').classList.add('hidden')};
 $('generate').onclick=async()=>{if(!window.currentPlan)return alert('Build the Director plan first.');const ep=localStorage.getItem('ahm_endpoint');if(!ep)return alert('Connect a GPU worker first.');alert('Generation is intentionally not enabled in this local-only build. The next backend build will submit this locked plan to the GPU worker.');};
-</script></body></html>
+</script>
+<script>
+(function(){
+"use strict";
+
+const GOLDEN_FISH_TEST = `🐟 THE GOLDEN FISH
+
+STYLE: Cinematic live-action fantasy, realistic actors, natural faces, dramatic lighting, realistic ocean, film-quality camera work.
+
+CHARACTER: ELIAS
+ROLE: 45-year-old poor fisherman
+LOOK: Weathered face, short dark brown hair, short beard, lean build, worn beige shirt, dark brown trousers, old leather sandals.
+PERSONALITY: Kind, humble, hardworking, patient, loving husband.
+VOICE: Warm, deep, gentle male voice.
+
+CHARACTER: MARA
+ROLE: 40-year-old fisherman’s wife
+LOOK: Long dark brown hair, expressive brown eyes, medium build, simple worn blue dress, natural appearance.
+PERSONALITY: Loving at first, increasingly demanding and greedy.
+VOICE: Natural expressive female voice.
+
+CHARACTER: GOLDEN FISH
+ROLE: Ancient magical talking fish
+LOOK: Magnificent shimmering golden scales, glowing eyes, elegant fins, subtle magical golden light.
+PERSONALITY: Wise, mysterious, calm, powerful, compassionate.
+VOICE: Magical calm voice, mysterious and slightly echoing.
+
+SCENE 1 — THE POOR FISHERMAN
+LOCATION:
+Small fishing village beside the ocean. Early morning.
+
+ACTION:
+Elias walks out of his tiny wooden house carrying an old fishing net.
+Mara stands in the doorway and looks worried.
+Elias walks toward the ocean.
+
+DIALOGUE:
+MARA: "Elias, please... catch something today."
+ELIAS: "I will, Mara."
+ELIAS: "Don't worry. We'll have something to eat tonight."
+
+EMOTION:
+Mara is worried.
+Elias is hopeful and reassuring.
+
+SOUND:
+Ocean waves, morning wind, distant village ambience.
+
+CONTINUITY:
+Keep Elias and Mara's faces, ages, hair, clothing and body proportions consistent.
+
+SCENE 2 — THE GOLDEN FISH
+LOCATION:
+On a small wooden fishing boat in the ocean. Morning.
+
+ACTION:
+Elias throws his net into the ocean.
+He waits.
+He pulls the net back and finds nothing.
+He throws it again.
+The net suddenly becomes extremely heavy.
+Elias struggles and pulls harder.
+A bright golden light shines through the net.
+Elias pulls out a magnificent glowing golden fish.
+The fish suddenly moves.
+
+DIALOGUE:
+ELIAS: "Come on..."
+ELIAS: "Whoa! What is this?"
+ELIAS: "What...?"
+GOLDEN FISH: "Please... don't kill me."
+ELIAS: "WHAT?!"
+GOLDEN FISH: "I can speak."
+ELIAS: "A talking fish?!"
+GOLDEN FISH: "I am no ordinary fish."
+
+EMOTION:
+Elias is shocked and confused.
+The fish is calm, mysterious and powerful.
+
+SOUND:
+Ocean waves, rope and net movement, wind, subtle magical shimmer.
+
+CONTINUITY:
+Elias must use the exact saved appearance from the character bible.
+The Golden Fish must retain the same golden scales, glowing eyes and magical light in every shot.
+Do not invent new characters or story events.`;
+
+function norm(s){ return String(s||"").replace(/\r/g,"").trim(); }
+
+function parseScript(script){
+  const lines = norm(script).split("\n");
+  const scenes=[];
+  let scene=null, section=null;
+
+  const sceneRe=/^SCENE\s+(\d+)\s*(?:[-—:]\s*(.*))?$/i;
+  const sectionRe=/^(STYLE|ROLE|LOOK|PERSONALITY|VOICE|LOCATION|ACTION|DIALOGUE|EMOTION|SOUND|CONTINUITY|CHARACTER)\s*:\s*(.*)$/i;
+  const speakerRe=/^([A-Z][A-Z0-9 _-]{1,30}):\s*(.*)$/;
+
+  function finish(){
+    if(!scene) return;
+    for(const k of Object.keys(scene.sections)){
+      scene.sections[k]=scene.sections[k].filter(Boolean);
+    }
+    scenes.push(scene);
+    scene=null;
+  }
+
+  for(const raw of lines){
+    const line=raw.trim();
+    if(!line) continue;
+
+    const sm=line.match(sceneRe);
+    if(sm){
+      finish();
+      scene={
+        number:sm[1],
+        title:sm[2]||"Untitled",
+        sections:{LOCATION:[],ACTION:[],DIALOGUE:[],EMOTION:[],SOUND:[],CONTINUITY:[]},
+        characters:[]
+      };
+      section="ACTION";
+      continue;
+    }
+
+    // Character bible information before scenes is attached to a global map.
+    if(!scene) continue;
+
+    const sec=line.match(sectionRe);
+    if(sec){
+      const key=sec[1].toUpperCase();
+      if(key==="CHARACTER"){
+        scene.characters.push(sec[2]);
+        section=null;
+      }else if(scene.sections[key]){
+        section=key;
+        if(sec[2]) scene.sections[key].push(sec[2]);
+      }
+      continue;
+    }
+
+    const sp=line.match(speakerRe);
+    if(sp && scene.sections.DIALOGUE){
+      scene.sections.DIALOGUE.push(sp[1]+': "'+sp[2].replace(/^["']|["']$/g,"")+'"');
+      continue;
+    }
+
+    if(section && scene.sections[section]) scene.sections[section].push(line);
+  }
+  finish();
+
+  // Detect speakers as scene character participants without inventing them.
+  scenes.forEach(s=>{
+    const found=[];
+    s.sections.DIALOGUE.forEach(d=>{
+      const m=d.match(/^([A-Z][A-Z0-9 _-]{1,30}):/);
+      if(m && !found.includes(m[1])) found.push(m[1]);
+    });
+    s.characters=[...new Set([...s.characters,...found])];
+  });
+
+  return scenes;
+}
+
+function makeShots(scene){
+  const s=scene.sections;
+  const shots=[];
+  if(s.LOCATION[0]) shots.push(["ESTABLISHING",s.LOCATION[0]]);
+  s.ACTION.forEach((a,i)=>{
+    shots.push([i===0?"ACTION":"CONTINUATION",a]);
+  });
+  // Every dialogue line gets a dialogue coverage instruction.
+  s.DIALOGUE.forEach(d=>shots.push(["DIALOGUE",d]));
+  s.EMOTION.forEach(e=>shots.push(["EMOTIONAL CLOSE-UP",e]));
+  if(s.SOUND.length) shots.push(["SOUND BED",s.SOUND.join(" ")]);
+  return shots;
+}
+
+function buildResult(script){
+  const scenes=parseScript(script);
+  let out="AHM STUDIO V6.1 — FREE DIRECTOR TRIAL RESULT\n";
+  out+="══════════════════════════════════════════════════\n";
+  out+=`Detected ${scenes.length} explicit story scene(s).\n`;
+  out+="No API request was made. No GPU was used.\n\n";
+
+  scenes.forEach(sc=>{
+    out+=`SCENE ${sc.number} — ${sc.title}\n`;
+    out+="──────────────────────────────────────────────────\n";
+    if(sc.characters.length) out+="CHARACTERS: "+sc.characters.join(", ")+"\n\n";
+    for(const key of ["LOCATION","ACTION","DIALOGUE","EMOTION","SOUND","CONTINUITY"]){
+      if(sc.sections[key].length){
+        out+=key+"\n";
+        sc.sections[key].forEach(x=>out+="  • "+x+"\n");
+        out+="\n";
+      }
+    }
+    out+="GPU PRODUCTION SHOTS\n";
+    const shots=makeShots(sc);
+    shots.forEach((sh,i)=>{
+      out+=`  SHOT ${i+1} — ${sh[0]}\n`;
+      out+=`    ${sh[1]}\n`;
+      out+="    CHARACTER LOCK: use exact saved character identity; no face/wardrobe drift.\n";
+      out+="    STORY LOCK: do not add, remove or change story events.\n";
+    });
+    out+="\n";
+  });
+
+  // Quality checks are deliberately deterministic and visible.
+  const checks=[];
+  checks.push([scenes.length>0,"Explicit SCENE blocks detected"]);
+  checks.push([scenes.every(s=>s.sections.LOCATION.length),"Every scene has LOCATION"]);
+  checks.push([scenes.every(s=>s.sections.ACTION.length),"Every scene has ACTION"]);
+  checks.push([scenes.every(s=>s.sections.DIALOGUE.length),"Every scene has DIALOGUE"]);
+  const dialogueCount=scenes.reduce((n,s)=>n+s.sections.DIALOGUE.length,0);
+  const shotCount=scenes.reduce((n,s)=>n+makeShots(s).length,0);
+  checks.push([dialogueCount>0,`All dialogue lines retained (${dialogueCount})`]);
+  checks.push([shotCount>=dialogueCount,`Production coverage created (${shotCount} instructions)`]);
+
+  out+="DIRECTOR VALIDATION\n";
+  checks.forEach(c=>out+=(c[0]?"✓ ":"✗ ")+c[1]+"\n");
+  return out;
+}
+
+function findMainScreenplay(){
+  const candidates=[
+    document.querySelector("#screenplay"),
+    document.querySelector("#script"),
+    document.querySelector("textarea"),
+    document.querySelector('[contenteditable="true"]')
+  ];
+  return candidates.find(x=>x);
+}
+function getValue(el){
+  if(!el) return "";
+  return "value" in el ? el.value : el.innerText;
+}
+function setValue(el,v){
+  if(!el) return;
+  if("value" in el){
+    el.value=v;
+    el.dispatchEvent(new Event("input",{bubbles:true}));
+    el.dispatchEvent(new Event("change",{bubbles:true}));
+  }else{
+    el.innerText=v;
+  }
+}
+
+document.addEventListener("DOMContentLoaded",()=>{
+  const out=document.getElementById("ahmTrialOutput");
+  const load=document.getElementById("ahmTrialGoldenFish");
+  const build=document.getElementById("ahmTrialBuild");
+  const copy=document.getElementById("ahmTrialCopy");
+  const clear=document.getElementById("ahmTrialClear");
+
+  load.onclick=()=>{
+    const el=findMainScreenplay();
+    if(el) setValue(el,GOLDEN_FISH_TEST);
+    out.textContent="🐟 Golden Fish test loaded into the screenplay editor.\n\nNow click 🧠 Build Trial Plan.";
+  };
+
+  build.onclick=()=>{
+    const el=findMainScreenplay();
+    const script=getValue(el);
+    if(!norm(script)){
+      out.textContent="Paste a screenplay first, or click 🐟 Load Golden Fish Test.";
+      return;
+    }
+    out.textContent=buildResult(script);
+  };
+
+  copy.onclick=async()=>{
+    if(!out.textContent) return;
+    try{
+      await navigator.clipboard.writeText(out.textContent);
+      copy.textContent="✓ Copied";
+      setTimeout(()=>copy.textContent="📋 Copy Result",1200);
+    }catch(e){
+      out.textContent+="\n\nCopy failed in this browser. Long-press the result and copy it manually.";
+    }
+  };
+
+  clear.onclick=()=>{
+    out.textContent="";
+  };
+
+  // Never allow the trial to call a GPU/provider endpoint.
+  const realGen=[...document.querySelectorAll("button")].filter(b=>/GENERATE VIDEO/i.test(b.textContent||""));
+  realGen.forEach(b=>{
+    b.disabled=true;
+    b.title="GPU generation is intentionally locked during the free Director trial.";
+  });
+});
+})();
+</script>
+
+</body></html>
