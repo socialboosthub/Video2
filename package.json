@@ -1,0 +1,1 @@
+{"name":"ahm-studio-v6","version":"6.0.0","private":true,"scripts":{"start":"node server.js"},"dependencies":{"express":"^5.1.0"}}

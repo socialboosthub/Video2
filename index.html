@@ -1,175 +1,62 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#08080d">
-<title>AHM Studio V4 — AI Film Studio</title>
-<link rel="stylesheet" href="/style.css">
-</head>
-<body>
-<header class="topbar">
-  <div class="brand"><span class="brand-mark">A</span><div><b>AHM STUDIO</b><small>AI FILM STUDIO • V4</small></div></div>
-  <div class="top-actions">
-    <button id="settingsBtn" class="ghost">⚙ Settings</button>
-    <button id="newProject" class="ghost">＋ New Project</button>
-  </div>
-</header>
-
-<main>
-<section class="hero">
-  <div>
-    <span class="eyebrow">WRITE • DIRECT • GENERATE</span>
-    <h1>Turn one screenplay into one complete AI movie.</h1>
-    <p>AHM Director keeps your story scenes, dialogue and character identities locked while preparing production shots for the GPU.</p>
-  </div>
-  <span class="status"><i></i><span id="statusText">Ready</span></span>
-</section>
-
-<section class="card">
-  <div class="section-head"><div><span class="step">01</span><h2>Your Screenplay</h2></div><span id="wordCount">0 words</span></div>
-  <textarea id="story" spellcheck="false" placeholder="Paste your screenplay here..."></textarea>
-  <div class="script-tools">
-    <button id="sampleBtn" class="secondary">Load Golden Fish Test</button>
-    <button id="clearBtn" class="secondary">Clear</button>
-    <button id="saveDraft" class="secondary">💾 Save Draft</button>
-    <span class="hint">Use the screenplay format explained below. AHM will not invent new story events.</span>
-  </div>
-</section>
-
-<section class="card">
-  <div class="section-head"><div><span class="step">02</span><h2>Character Library</h2></div><button id="addCharacter" class="secondary">＋ New Character</button></div>
-  <p class="muted">Characters are saved in this browser. Edit or delete them anytime, then add saved characters to a project.</p>
-  <div id="characters"></div>
-</section>
-
-<section class="card">
-  <div class="section-head"><div><span class="step">03</span><h2>Production</h2></div></div>
-  <div class="settings-grid">
-    <label>Visual Style<select id="visualStyle">
-      <option>Cinematic Live Action</option><option>Cinematic 3D</option><option>Photoreal Fantasy</option><option>Stylized Animation</option><option>Anime Cinematic</option>
-    </select></label>
-    <label>Format<select id="format">
-      <option value="9:16">9:16 — TikTok / Reels / Shorts</option><option value="16:9">16:9 — YouTube / Film</option><option value="1:1">1:1 — Square</option>
-    </select></label>
-    <label>Target Length<select id="length">
-      <option value="1">1 minute</option><option value="2">2 minutes</option><option value="3">3 minutes</option><option value="4" selected>4 minutes</option><option value="5">5 minutes</option><option value="10">10 minutes</option>
-    </select></label>
-    <label>Dialogue<select id="voiceMode"><option value="exact">Use Script Dialogue Exactly</option><option value="polish">AI polish without changing meaning</option></select></label>
-    <label class="check"><input type="checkbox" id="noNarrator" checked> No narrator unless the screenplay explicitly requests one</label>
-    <label class="check"><input type="checkbox" id="subtitles" checked> Burn subtitles into final video</label>
-  </div>
-</section>
-
-<section class="card director">
-  <div class="director-head">
-    <div><span class="step">04</span><h2>AHM Director</h2><p id="planSummary">Build a faithful production plan from your screenplay.</p></div>
-    <div class="director-actions">
-      <button id="buildPlan" class="primary">🧠 BUILD DIRECTOR PLAN</button>
-      <button id="generateBtn" class="secondary" disabled>🎬 GENERATE VIDEO</button>
-    </div>
-  </div>
-  <div id="plan" class="empty">Your locked story scenes, dialogue, continuity and GPU shots will appear here.</div>
-</section>
-
-<section id="generation" class="card hidden">
-  <div class="section-head"><div><span class="step">05</span><h2>Generation</h2></div><span id="genStatus">Waiting</span></div>
-  <div class="progress"><span id="progressBar"></span></div>
-  <div id="logs" class="logs"></div>
-  <div id="result" class="result"></div>
-</section>
-
-<section class="card guide">
-<h2>✍️ How to write a GPU-friendly AHM screenplay</h2>
-<p class="muted">You write the story. AHM Director converts it into production shots. The clearer your screenplay, the less guessing the director and GPU pipeline have to do.</p>
-<div class="guide-grid">
-<div><b>1. GLOBAL STYLE</b><pre>STYLE: Cinematic live-action fantasy, realistic actors, natural faces, dramatic lighting, realistic ocean, film-quality camera work.</pre></div>
-<div><b>2. CHARACTER BIBLE</b><pre>CHARACTER: ELIAS
-ROLE: 45-year-old fisherman
-LOOK: Lean build, short dark hair, short beard, worn beige shirt...
-PERSONALITY: Kind, humble, patient.
-VOICE: Warm, deep, gentle male voice.</pre></div>
-<div><b>3. ONE CLEAR SCENE</b><pre>SCENE 1 — THE POOR FISHERMAN
-LOCATION: Small fishing village beside the ocean. Early morning.
-ACTION:
-Elias leaves his wooden house carrying an old net.
-Mara watches from the doorway.
-DIALOGUE:
-MARA: "Elias, please catch something today."
-ELIAS: "I will, Mara."
-CAMERA: Wide village shot, then medium two-shot.
-EMOTION: Worried but loving.
-SOUND: Ocean waves, morning wind.</pre></div>
-<div><b>4. CONTINUITY</b><pre>CONTINUITY:
-Elias keeps the same face, age, hair, beard and clothing established in the character bible.
-Mara keeps the same face, age, hair and dress.
-Do not change props or location unless the story says so.</pre></div>
-</div>
-<div class="tip"><b>🔥 Best practice:</b> describe what happens visibly, keep dialogue exact, avoid contradictory instructions, and separate major story beats into numbered scenes. AHM can create many internal shots inside one scene; you do not need to write 60 tiny scenes.</div>
-</section>
-</main>
-
-<div id="settingsModal" class="modal hidden">
-<div class="modal-card">
-  <div class="modal-head"><h2>⚙ AHM Connection</h2><button id="closeSettings" class="remove">×</button></div>
-  <p class="muted">For security, AHM does not put secret API keys into the public HTML. Save a key only if your deployment uses the server-side environment route.</p>
-  <label>Provider<select id="provider"><option value="runpod">RunPod</option><option value="custom">Custom GPU Worker</option></select></label>
-  <label>API Key<input id="apiKey" type="password" placeholder="Paste your API key tomorrow"></label>
-  <label>Worker Endpoint<input id="workerEndpoint" placeholder="https://your-worker.example.com"></label>
-  <div class="modal-actions"><button id="clearKey" class="secondary">Clear</button><button id="saveSettings" class="primary">Save Settings</button></div>
-  <div id="connectionNote" class="notice">Connection is not verified yet.</div>
-</div>
-</div>
-
-<template id="characterTemplate"><div class="character"></div></template>
-<script src="/app.js"></script>
-
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>AHM Studio V6</title>
 <style>
-#trialOverlay{display:none;position:fixed;inset:0;background:#000b;z-index:99999;align-items:center;justify-content:center;padding:16px}#trialBox{width:min(720px,100%);max-height:90vh;overflow:auto;background:#111;color:#fff;border:1px solid #444;border-radius:18px;padding:20px;font-family:system-ui}#trialScript{width:100%;min-height:190px;background:#181818;color:#fff;border:1px solid #444;border-radius:12px;padding:12px;box-sizing:border-box}#trialBox button{padding:11px 15px;border:0;border-radius:10px;margin:10px 8px 0 0;cursor:pointer}#trialResult{white-space:pre-wrap;background:#181818;border-radius:12px;padding:14px;margin-top:15px;line-height:1.45}</style>
-<div id="trialOverlay"><div id="trialBox"><b>FREE LOCAL TRIAL • NO API • NO GPU • NO CHARGE</b><h2>🧠 AHM Director Trial</h2><p>Test the director planning locally. Nothing is sent anywhere.</p><textarea id="trialScript" placeholder="Paste a short script here..."></textarea><br><button id="trialRun">Build Trial Plan</button><button id="trialClose">Close</button><div id="trialResult"></div></div></div>
-<button id="trialOpen" style="position:fixed;right:16px;bottom:16px;z-index:9999;padding:12px 16px;border:0;border-radius:12px;cursor:pointer">🧠 Director Trial</button>
+:root{--bg:#08090d;--panel:#11131a;--panel2:#171a23;--line:#292e3b;--text:#f5f7fb;--muted:#9ca4b5;--gold:#f4c76a;--danger:#ff6b6b;--ok:#5ee7a2}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 15% 0,#24200f 0,transparent 32%),var(--bg);color:var(--text);font:14px system-ui,-apple-system,Segoe UI,Roboto,sans-serif}button,input,textarea,select{font:inherit}button{cursor:pointer;border:1px solid var(--line);background:#1a1d27;color:var(--text);border-radius:12px;padding:10px 14px}button:hover{border-color:#4a5265}.primary{background:linear-gradient(135deg,#f6d477,#b9862e);color:#16120a;border:0;font-weight:800}.danger{color:#ffd1d1;border-color:#6c3030}.ghost{background:transparent}.wrap{max-width:1200px;margin:auto;padding:18px}.top{display:flex;justify-content:space-between;align-items:center;gap:12px;position:sticky;top:0;background:rgba(8,9,13,.88);backdrop-filter:blur(16px);z-index:3;padding:10px 0}.brand{font-weight:900;letter-spacing:.08em}.brand small{display:block;color:var(--gold);font-weight:600;letter-spacing:.15em}.grid{display:grid;grid-template-columns:1.25fr .75fr;gap:14px}.card{background:linear-gradient(180deg,rgba(23,26,35,.97),rgba(13,15,21,.97));border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 12px 40px #0005}.card h2,.card h3{margin:0 0 10px}.label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;margin:12px 0 6px}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.between{display:flex;justify-content:space-between;gap:10px;align-items:center}.textarea{width:100%;min-height:420px;resize:vertical;background:#0b0d12;color:var(--text);border:1px solid var(--line);border-radius:14px;padding:14px;outline:none}.textarea:focus,input:focus,select:focus{border-color:#b58b3d;outline:none}input,select{width:100%;background:#0b0d12;color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px}.mini{font-size:12px;color:var(--muted)}.status{display:inline-flex;align-items:center;gap:6px;color:var(--ok)}.dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}.char{border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:8px;background:#0c0f15}.char strong{display:block}.pill{display:inline-block;border:1px solid var(--line);border-radius:999px;padding:4px 8px;margin:3px 3px 0 0;color:#cbd2df;font-size:11px}.result{white-space:pre-wrap;background:#090b10;border:1px solid var(--line);border-radius:14px;padding:14px;max-height:650px;overflow:auto;line-height:1.5}.shot{border:1px solid var(--line);border-radius:12px;padding:10px;margin:8px 0;background:#0d1017}.shot b{color:var(--gold)}.hidden{display:none}.modal{position:fixed;inset:0;background:#000b;display:flex;align-items:center;justify-content:center;padding:16px;z-index:10}.modalbox{width:min(620px,100%);max-height:90vh;overflow:auto;background:#11141b;border:1px solid #343a49;border-radius:18px;padding:18px}.close{float:right}.warn{background:#2a1d0b;border:1px solid #654a1d;color:#f6d98e;padding:10px;border-radius:12px}.tabs{display:flex;gap:6px;margin-bottom:12px}.tab.active{background:#292d38;border-color:#596274}.sceneHead{color:var(--gold);font-weight:800}.metric{font-size:24px;font-weight:900}.footer{color:#667084;text-align:center;padding:30px 0}@media(max-width:850px){.grid{grid-template-columns:1fr}.top{align-items:flex-start}.textarea{min-height:360px}}
+</style></head>
+<body><div class="wrap">
+<header class="top"><div class="brand">AHM STUDIO<small>AI FILM STUDIO • V6</small></div><div class="row"><button id="newBtn">＋ New Project</button><button id="settingsBtn">⚙ Settings</button></div></header>
+<div class="card" style="margin:14px 0"><div class="between"><div><h2>WRITE • DIRECT • GENERATE</h2><div class="mini">One screenplay → locked story scenes → production shots → GPU job → final movie.</div></div><span class="status"><span class="dot"></span><span id="modeText">FREE LOCAL TRIAL</span></span></div></div>
+<div class="grid">
+<main>
+<section class="card"><div class="between"><div><h3>01 • Your Screenplay</h3><div class="mini" id="wordCount">0 words</div></div><div class="row"><button id="loadTest">Load Golden Fish Test</button><button id="clearScript" class="ghost">Clear</button><button id="saveDraft">💾 Save Draft</button></div></div><textarea id="script" class="textarea" placeholder="Paste your screenplay here..."></textarea>
+<div class="label">Screenplay rule</div><div class="mini">Use numbered scenes. Inside each scene use LOCATION, ACTION, DIALOGUE, EMOTION, CAMERA, SOUND and CONTINUITY when available. AHM never invents story events during parsing.</div></section>
+<section class="card" style="margin-top:14px"><div class="between"><h3>02 • Character Library</h3><button id="addChar">＋ New Character</button></div><div id="chars"></div></section>
+</main>
+<aside>
+<section class="card"><h3>03 • Production</h3><div class="label">Visual Style</div><select id="style"><option>Cinematic Live Action</option><option>Cinematic 3D</option><option>Anime Cinematic</option><option>Photorealistic Fantasy</option></select><div class="label">Format</div><select id="format"><option value="9:16">9:16 — TikTok / Reels / Shorts</option><option value="16:9">16:9 — YouTube / Film</option><option value="1:1">1:1 — Social</option></select><div class="label">Target Length</div><select id="length"><option value="180">3 minutes</option><option value="240" selected>4 minutes</option><option value="300">5 minutes</option></select><div class="label">Dialogue</div><select id="dialogue"><option>Use Script Dialogue Exactly</option><option>Allow minor grammar cleanup</option></select><div class="row" style="margin-top:12px"><label><input id="subs" type="checkbox" checked style="width:auto"> Burn subtitles</label></div></section>
+<section class="card" style="margin-top:14px"><h3>04 • AHM Director V6</h3><div class="mini">The Director preserves every scripted line, locks characters, builds meaningful coverage and assigns timing before GPU generation.</div><div class="row" style="margin-top:12px"><button class="primary" id="build">🧠 BUILD DIRECTOR PLAN</button><button id="generate" disabled>🎬 GENERATE VIDEO</button></div><div class="warn" style="margin-top:12px">GPU generation is disabled until a real server-side connection is configured. Trial planning is local and free.</div></section>
+</aside></div>
+<section class="card" style="margin-top:14px"><div class="between"><h3>Director Output</h3><div class="row"><span class="pill" id="sceneMetric">0 scenes</span><span class="pill" id="shotMetric">0 shots</span><span class="pill" id="lineMetric">0 dialogue lines</span></div></div><div id="output" class="result">Your locked story scenes and production shots will appear here.</div></section>
+<div class="footer">AHM Studio V6 • Trial mode never sends your screenplay or API key anywhere.</div></div>
+<div id="modal" class="modal hidden"><div class="modalbox"><button id="closeModal" class="close">✕</button><h2>⚙ AHM Connection</h2><div class="warn">Never put a private API key directly in public HTML or client-side JavaScript. Save secrets in Vercel/RunPod server environment variables.</div><div class="label">Provider</div><select id="provider"><option>RunPod</option><option>Custom GPU Worker</option></select><div class="label">Server-side API Key</div><input id="apiKey" type="password" placeholder="Paste your API key when you are ready"><div class="label">Worker Endpoint</div><input id="endpoint" placeholder="https://your-worker.example.com"><div class="row" style="margin-top:14px"><button id="clearSettings" class="danger">Clear</button><button id="saveSettings" class="primary">Save Settings</button></div><p id="connStatus" class="mini">Not configured. Trial mode remains available.</p></div></div>
 <script>
-(()=>{
-const $=x=>document.querySelector(x);
-$('#trialOpen').onclick=()=>$('#trialOverlay').style.display='flex';
-$('#trialClose').onclick=()=>$('#trialOverlay').style.display='none';
-$('#trialOverlay').onclick=e=>{if(e.target.id==='trialOverlay')e.currentTarget.style.display='none'};
-document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#trialOverlay').style.display='none'});
-function buildPlan(text){
- const lines=text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean), scenes=[];
- const sceneRe=/^(?:SCENE|Scene)\s*(\d+)\s*(?:[-—:]\s*(.*))?$/i;
- const sectionRe=/^(LOCATION|ACTION|DIALOGUE|EMOTION|CAMERA|SOUND|CONTINUITY|CHARACTERS?)\s*:\s*$/i;
- const inlineRe=/^(LOCATION|ACTION|DIALOGUE|EMOTION|CAMERA|SOUND|CONTINUITY|CHARACTERS?)\s*:\s*(.*)$/i;
- const speakerRe=/^([A-Z][A-Z0-9 _-]{1,35}):\s*(.*)$/;
- let cur=null, sec='ACTION';
- const make=(n,t)=>({n,t:t||'Untitled scene',s:{LOCATION:[],ACTION:[],DIALOGUE:[],EMOTION:[],CAMERA:[],SOUND:[],CONTINUITY:[],CHARACTERS:[]},shots:[]});
- const push=()=>{if(cur)scenes.push(cur)};
- for(const line of lines){
-  let m=line.match(sceneRe); if(m){push();cur=make(m[1],m[2]);sec='ACTION';continue}
-  if(!cur)continue;
-  m=line.match(inlineRe); if(m){sec=m[1].toUpperCase();if(sec==='CHARACTER')sec='CHARACTERS';if(m[2])cur.s[sec].push(m[2]);continue}
-  m=line.match(sectionRe); if(m){sec=m[1].toUpperCase();if(sec==='CHARACTER')sec='CHARACTERS';continue}
-  m=line.match(speakerRe); if(m&&!['LOCATION','ACTION','DIALOGUE','EMOTION','CAMERA','SOUND','CONTINUITY','CHARACTER','CHARACTERS'].includes(m[1].toUpperCase())){cur.s.DIALOGUE.push(m[1]+': "'+m[2].replace(/^['"]|['"]$/g,'')+'"');continue}
-  if(cur.s[sec])cur.s[sec].push(line);
+const $=id=>document.getElementById(id);
+const TEST=`SCENE 1 — THE FISHERMAN\n\nLOCATION:\nA small fishing village beside the ocean at sunrise.\n\nACTION:\nElias leaves his small wooden house carrying an old fishing net.\nMara watches him from the doorway.\nElias walks toward the ocean.\n\nDIALOGUE:\nMARA: "Elias, please... catch something today."\nELIAS: "Don't worry. We'll have something to eat tonight."\n\nEMOTION:\nElias is hopeful.\nMara is worried.\n\nSCENE 2 — THE GOLDEN FISH\n\nLOCATION:\nA small wooden fishing boat on the ocean.\n\nACTION:\nElias throws his net into the water.\nThe net suddenly becomes heavy.\nHe pulls out a magnificent glowing golden fish.\n\nDIALOGUE:\nELIAS: "What...?"\nGOLDEN FISH: "Please... don't kill me."\n\nEMOTION:\nElias is shocked.\nThe fish is calm and mysterious.`;
+const sectionNames=['LOCATION','ACTION','DIALOGUE','EMOTION','CAMERA','SOUND','CONTINUITY','CHARACTERS'];
+function parseScript(text){
+ const lines=text.split(/\r?\n/); const scenes=[]; let s=null, sec=null;
+ const sceneRe=/^SCENE\s+(\d+)\s*(?:[-—:]\s*(.*))?$/i;
+ const sectionRe=/^(LOCATION|ACTION|DIALOGUE|EMOTION|CAMERA|SOUND|CONTINUITY|CHARACTERS?)\s*:\s*(.*)$/i;
+ const speakerRe=/^([A-Z][A-Z0-9 _-]{1,40}):\s*(.*)$/;
+ const ensure=()=>{if(!s)return;s.sections.CHARACTERS=s.sections.CHARACTERS||[];scenes.push(s)};
+ for(const raw of lines){const line=raw.trim();if(!line)continue;const m=line.match(sceneRe);if(m){ensure();s={number:+m[1],title:m[2]||'Untitled scene',sections:{LOCATION:[],ACTION:[],DIALOGUE:[],EMOTION:[],CAMERA:[],SOUND:[],CONTINUITY:[],CHARACTERS:[]},dialogue:[]};sec=null;continue}if(!s)continue;
+  const sm=line.match(sectionRe); if(sm){const k=sm[1].toUpperCase().replace(/^CHARACTER$/,'CHARACTERS');sec=k;if(sm[2])s.sections[k].push(sm[2]);continue}
+  const dm=line.match(speakerRe); if(dm && sec==='DIALOGUE'){s.dialogue.push({speaker:dm[1],text:dm[2].replace(/^['"]|['"]$/g,'')});s.sections.DIALOGUE.push(dm[1]+': "'+dm[2].replace(/^['"]|['"]$/g,'')+'"');continue}
+  if(sec && s.sections[sec])s.sections[sec].push(line);
  }
- push();
- if(!scenes.length){let c=make('1','Auto-planned scene');c.s.ACTION=lines;scenes.push(c)}
- scenes.forEach(x=>{
-  if(x.s.LOCATION[0])x.shots.push(['Wide establishing shot',x.s.LOCATION[0]]);
-  if(x.s.ACTION[0])x.shots.push(['Action medium shot',x.s.ACTION[0]]);
-  if(x.s.ACTION[1])x.shots.push(['Tracking / reaction shot',x.s.ACTION[1]]);
-  if(x.s.DIALOGUE[0])x.shots.push(['Dialogue close-up / two-shot',x.s.DIALOGUE[0]]);
-  if(x.s.EMOTION[0])x.shots.push(['Emotional close-up',x.s.EMOTION[0]]);
-  if(!x.shots.length)x.shots.push(['Story coverage','Stage the scene faithfully from the supplied screenplay.']);
- }); return scenes;
+ ensure(); return scenes;
 }
-$('#trialRun').onclick=()=>{
- const text=$('#trialScript').value.trim(); if(!text){$('#trialResult').textContent='Paste a script first.';return}
- const scenes=buildPlan(text); let out='AHM DIRECTOR V5 TRIAL RESULT\n\nDetected '+scenes.length+' story scene(s).\nSections are separated and internal production shots are derived from the story.\n\n';
- scenes.forEach(x=>{out+='━━━━━━━━━━━━━━━━━━━━\nSCENE '+x.n+' — '+x.t+'\n━━━━━━━━━━━━━━━━━━━━\n';['LOCATION','CHARACTERS','ACTION','DIALOGUE','EMOTION','CAMERA','SOUND','CONTINUITY'].forEach(k=>{if(x.s[k].length)out+=k+'\n'+x.s[k].map(v=>'  '+v).join('\n')+'\n\n'});out+='GPU SHOT PLAN\n';x.shots.forEach((v,i)=>out+='  SHOT '+(i+1)+' — '+v[0]+'\n    '+v[1]+'\n');out+='\n'});
- $('#trialResult').textContent=out;
-};
-})();
-</script>
-</body>
-</html>
+function buildPlan(){const scenes=parseScript($('script').value); if(!scenes.length){alert('Add at least one SCENE.');return null} const chars=JSON.parse(localStorage.getItem('ahm_chars')||'[]'); let shotNo=0;let dialogueLines=0;const target=+$('length').value; const base=Math.max(5,Math.round(target/scenes.length));
+ scenes.forEach((s,i)=>{s.duration=base;s.shots=[];const push=(type,visual,dialogue=[])=>{shotNo++;s.shots.push({id:'S'+String(shotNo).padStart(3,'0'),type,visual,dialogue})};
+  if(s.sections.LOCATION.length)push('ESTABLISHING',s.sections.LOCATION[0]);
+  s.sections.ACTION.forEach((a,j)=>push(j===0?'ACTION':'COVERAGE',a));
+  s.dialogue.forEach(d=>{push('DIALOGUE',`Performance by ${d.speaker}. Preserve exact scripted words.`,[d]);dialogueLines++});
+  if(s.sections.EMOTION.length)push('EMOTION',s.sections.EMOTION.join(' '));
+  if(s.sections.CAMERA.length)push('SCRIPT CAMERA',s.sections.CAMERA.join(' '));
+  if(!s.shots.length)push('STORY COVERAGE','Visually stage only what this scene states. Do not invent events.');
+  s.characters=[...new Set([...s.sections.CHARACTERS,...s.dialogue.map(x=>x.speaker),...chars.map(c=>c.name).filter(n=>JSON.stringify(s).toLowerCase().includes(n.toLowerCase()))])];
+  s.continuity=[...s.sections.CONTINUITY,'Preserve exact character identity, wardrobe, props, location and time unless the screenplay explicitly changes them.'];
+ });
+ return {scenes,shotNo,dialogueLines,target,chars,settings:{style:$('style').value,format:$('format').value,dialogue:$('dialogue').value,subtitles:$('subs').checked}};
+}
+function render(plan){let t='AHM DIRECTOR V6 — LOCKED PRODUCTION PLAN\n\n';t+=`TARGET: ${plan.target}s • ${plan.settings.format} • ${plan.settings.style}\n`;t+='RULE: No invented story events. Dialogue is preserved exactly.\n\n';for(const s of plan.scenes){t+=`━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nSCENE ${s.number} — ${s.title}\nDURATION: ~${s.duration}s\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;for(const k of ['LOCATION','ACTION','DIALOGUE','EMOTION','CAMERA','SOUND'])if(s.sections[k].length)t+=k+'\n'+s.sections[k].map(x=>'  '+x).join('\n')+'\n\n';t+='CHARACTERS\n  '+(s.characters.length?s.characters.join(', '):'Infer only from this scene; never invent identities.')+'\n\nCONTINUITY LOCK\n'+s.continuity.map(x=>'  '+x).join('\n')+'\n\nPRODUCTION SHOTS\n';for(const sh of s.shots){t+=`  ${sh.id} • ${sh.type}\n    ${sh.visual}\n`;if(sh.dialogue.length)t+=`    DIALOGUE: ${sh.dialogue[0].speaker}: "${sh.dialogue[0].text}"\n`;t+='    CAMERA: Choose framing that best communicates this exact beat; do not add events.\n    AUDIO: Preserve dialogue; natural scene sound; no narrator unless explicitly scripted.\n\n`}}$('output').textContent=t;$('sceneMetric').textContent=plan.scenes.length+' scenes';$('shotMetric').textContent=plan.shotNo+' shots';$('lineMetric').textContent=plan.dialogueLines+' dialogue lines';window.currentPlan=plan}
+function renderChars(){const box=$('chars'), arr=JSON.parse(localStorage.getItem('ahm_chars')||'[]');if(!arr.length){box.innerHTML='<div class="mini">No saved characters yet. Create Elias, Mara, villains, heroes or creatures.</div>';return}box.innerHTML=arr.map((c,i)=>`<div class="char"><strong>${esc(c.name)}</strong><span class="pill">${esc(c.role||'Character')}</span><div class="mini" style="margin-top:6px">${esc(c.look||'')}</div><div class="row" style="margin-top:8px"><button data-edit="${i}">Edit</button><button class="danger" data-del="${i}">Delete</button></div></div>`).join('');box.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{arr.splice(+b.dataset.del,1);localStorage.setItem('ahm_chars',JSON.stringify(arr));renderChars()});box.querySelectorAll('[data-edit]').forEach(b=>editChar(+b.dataset.edit))}
+function esc(x){return String(x||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function editChar(i=null){const arr=JSON.parse(localStorage.getItem('ahm_chars')||'[]');const old=i===null?{}:arr[i];const name=prompt('Character name',old.name||'');if(!name)return;const role=prompt('Role',old.role||'');const look=prompt('Exact visual appearance / continuity lock',old.look||'');const personality=prompt('Personality',old.personality||'');const voice=prompt('Voice',old.voice||'');const c={name,role,look,personality,voice};if(i===null)arr.push(c);else arr[i]=c;localStorage.setItem('ahm_chars',JSON.stringify(arr));renderChars()}
+$('script').oninput=()=>{const n=$('script').value.trim().split(/\s+/).filter(Boolean).length;$('wordCount').textContent=n+' words'};$('loadTest').onclick=()=>{$('script').value=TEST;$('script').dispatchEvent(new Event('input'))};$('clearScript').onclick=()=>{$('script').value='';$('script').dispatchEvent(new Event('input'))};$('newBtn').onclick=()=>{$('script').value='';$('output').textContent='New project ready.';$('script').dispatchEvent(new Event('input'))};$('saveDraft').onclick=()=>{localStorage.setItem('ahm_draft',$('script').value);alert('Draft saved locally on this device.')};$('addChar').onclick=()=>editChar();$('build').onclick=()=>{const p=buildPlan();if(p)render(p)};renderChars();
+$('settingsBtn').onclick=()=>{$('modal').classList.remove('hidden');$('apiKey').value='';$('endpoint').value=localStorage.getItem('ahm_endpoint')||''};$('closeModal').onclick=()=>$('modal').classList.add('hidden');$('modal').onclick=e=>{if(e.target.id==='modal')$('modal').classList.add('hidden')};document.addEventListener('keydown',e=>{if(e.key==='Escape')$('modal').classList.add('hidden')});$('clearSettings').onclick=()=>{localStorage.removeItem('ahm_endpoint');$('endpoint').value='';$('connStatus').textContent='Cleared. Trial mode remains available.'};$('saveSettings').onclick=()=>{const ep=$('endpoint').value.trim();if(!ep){$('connStatus').textContent='Worker endpoint is required when connecting a GPU.';return}localStorage.setItem('ahm_endpoint',ep);$('connStatus').textContent='Endpoint saved locally. Put the actual secret API key in your server environment, not this page.';alert('Endpoint saved. Keep the API key server-side for security.');$('modal').classList.add('hidden')};
+$('generate').onclick=async()=>{if(!window.currentPlan)return alert('Build the Director plan first.');const ep=localStorage.getItem('ahm_endpoint');if(!ep)return alert('Connect a GPU worker first.');alert('Generation is intentionally not enabled in this local-only build. The next backend build will submit this locked plan to the GPU worker.');};
+</script></body></html>
