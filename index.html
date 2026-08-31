@@ -129,9 +129,47 @@ Do not change props or location unless the story says so.</pre></div>
 <div id="trialOverlay"><div id="trialBox"><b>FREE LOCAL TRIAL • NO API • NO GPU • NO CHARGE</b><h2>🧠 AHM Director Trial</h2><p>Test the director planning locally. Nothing is sent anywhere.</p><textarea id="trialScript" placeholder="Paste a short script here..."></textarea><br><button id="trialRun">Build Trial Plan</button><button id="trialClose">Close</button><div id="trialResult"></div></div></div>
 <button id="trialOpen" style="position:fixed;right:16px;bottom:16px;z-index:9999;padding:12px 16px;border:0;border-radius:12px;cursor:pointer">🧠 Director Trial</button>
 <script>
-(()=>{const $=x=>document.querySelector(x);$('#trialOpen').onclick=()=>$('#trialOverlay').style.display='flex';$('#trialClose').onclick=()=>$('#trialOverlay').style.display='none';$('#trialOverlay').onclick=e=>{if(e.target.id==='trialOverlay')e.currentTarget.style.display='none'};document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#trialOverlay').style.display='none'});$('#trialRun').onclick=()=>{let text=$('#trialScript').value.trim();if(!text){$('#trialResult').textContent='Paste a script first.';return}let lines=text.split(/\n/).map(x=>x.trim()).filter(Boolean), ms=[];let re=/^(?:SCENE|Scene)\s*(\d+)\s*(?:[-—:]\s*(.*))?$/;lines.forEach((x,i)=>{let m=x.match(re);if(m)ms.push({n:m[1],t:m[2]||'Untitled',i})});if(!ms.length)ms=[{n:'1',t:'Auto-planned scene',i:-1}];let out='AHM DIRECTOR TRIAL RESULT\n\nDetected '+ms.length+' scene(s).\n\n';ms.forEach((m,k)=>{let a=ms.length===1&&m.i===-1?lines:lines.slice(m.i+1,(k+1<ms.length?ms[k+1].i:lines.length));let d=a.filter(x=>/^[A-Z][A-Z0-9 _-]{1,30}:/.test(x));let loc=a.find(x=>/^LOCATION:/i.test(x));out+='SCENE '+m.n+' — '+m.t+'\n';out+='• Location: '+(loc||'Infer from story')+'\n';out+='• Action: '+(a.filter(x=>!/^LOCATION:|^ACTION:|^DIALOGUE:|^CAMERA:|^EMOTION:|^SOUND:|^CONTINUITY:/i.test(x)&&!/^[A-Z][A-Z0-9 _-]{1,30}:/.test(x)).slice(0,5).join(' | ')||'Use supplied scene action')+'\n';out+='• Dialogue: '+(d.join(' | ')||'None detected')+'\n';out+='• Camera: Build coverage from action and emotion.\n• Continuity: Preserve established faces, clothing, props and environment.\n\n'});$('#trialResult').textContent=out};
-// Make common modal close buttons work even without credentials
-document.addEventListener('click',e=>{let t=e.target,txt=(t.textContent||'').trim().toLowerCase();if(txt==='×'||txt==='x'||txt==='close'||t.getAttribute('aria-label')==='close'){let p=t.closest('[role=dialog],.modal,.settings,.drawer,.overlay');if(p)p.style.display='none'}},true)})();
+(()=>{
+const $=x=>document.querySelector(x);
+$('#trialOpen').onclick=()=>$('#trialOverlay').style.display='flex';
+$('#trialClose').onclick=()=>$('#trialOverlay').style.display='none';
+$('#trialOverlay').onclick=e=>{if(e.target.id==='trialOverlay')e.currentTarget.style.display='none'};
+document.addEventListener('keydown',e=>{if(e.key==='Escape')$('#trialOverlay').style.display='none'});
+function buildPlan(text){
+ const lines=text.split(/\r?\n/).map(x=>x.trim()).filter(Boolean), scenes=[];
+ const sceneRe=/^(?:SCENE|Scene)\s*(\d+)\s*(?:[-—:]\s*(.*))?$/i;
+ const sectionRe=/^(LOCATION|ACTION|DIALOGUE|EMOTION|CAMERA|SOUND|CONTINUITY|CHARACTERS?)\s*:\s*$/i;
+ const inlineRe=/^(LOCATION|ACTION|DIALOGUE|EMOTION|CAMERA|SOUND|CONTINUITY|CHARACTERS?)\s*:\s*(.*)$/i;
+ const speakerRe=/^([A-Z][A-Z0-9 _-]{1,35}):\s*(.*)$/;
+ let cur=null, sec='ACTION';
+ const make=(n,t)=>({n,t:t||'Untitled scene',s:{LOCATION:[],ACTION:[],DIALOGUE:[],EMOTION:[],CAMERA:[],SOUND:[],CONTINUITY:[],CHARACTERS:[]},shots:[]});
+ const push=()=>{if(cur)scenes.push(cur)};
+ for(const line of lines){
+  let m=line.match(sceneRe); if(m){push();cur=make(m[1],m[2]);sec='ACTION';continue}
+  if(!cur)continue;
+  m=line.match(inlineRe); if(m){sec=m[1].toUpperCase();if(sec==='CHARACTER')sec='CHARACTERS';if(m[2])cur.s[sec].push(m[2]);continue}
+  m=line.match(sectionRe); if(m){sec=m[1].toUpperCase();if(sec==='CHARACTER')sec='CHARACTERS';continue}
+  m=line.match(speakerRe); if(m&&!['LOCATION','ACTION','DIALOGUE','EMOTION','CAMERA','SOUND','CONTINUITY','CHARACTER','CHARACTERS'].includes(m[1].toUpperCase())){cur.s.DIALOGUE.push(m[1]+': "'+m[2].replace(/^['"]|['"]$/g,'')+'"');continue}
+  if(cur.s[sec])cur.s[sec].push(line);
+ }
+ push();
+ if(!scenes.length){let c=make('1','Auto-planned scene');c.s.ACTION=lines;scenes.push(c)}
+ scenes.forEach(x=>{
+  if(x.s.LOCATION[0])x.shots.push(['Wide establishing shot',x.s.LOCATION[0]]);
+  if(x.s.ACTION[0])x.shots.push(['Action medium shot',x.s.ACTION[0]]);
+  if(x.s.ACTION[1])x.shots.push(['Tracking / reaction shot',x.s.ACTION[1]]);
+  if(x.s.DIALOGUE[0])x.shots.push(['Dialogue close-up / two-shot',x.s.DIALOGUE[0]]);
+  if(x.s.EMOTION[0])x.shots.push(['Emotional close-up',x.s.EMOTION[0]]);
+  if(!x.shots.length)x.shots.push(['Story coverage','Stage the scene faithfully from the supplied screenplay.']);
+ }); return scenes;
+}
+$('#trialRun').onclick=()=>{
+ const text=$('#trialScript').value.trim(); if(!text){$('#trialResult').textContent='Paste a script first.';return}
+ const scenes=buildPlan(text); let out='AHM DIRECTOR V5 TRIAL RESULT\n\nDetected '+scenes.length+' story scene(s).\nSections are separated and internal production shots are derived from the story.\n\n';
+ scenes.forEach(x=>{out+='━━━━━━━━━━━━━━━━━━━━\nSCENE '+x.n+' — '+x.t+'\n━━━━━━━━━━━━━━━━━━━━\n';['LOCATION','CHARACTERS','ACTION','DIALOGUE','EMOTION','CAMERA','SOUND','CONTINUITY'].forEach(k=>{if(x.s[k].length)out+=k+'\n'+x.s[k].map(v=>'  '+v).join('\n')+'\n\n'});out+='GPU SHOT PLAN\n';x.shots.forEach((v,i)=>out+='  SHOT '+(i+1)+' — '+v[0]+'\n    '+v[1]+'\n');out+='\n'});
+ $('#trialResult').textContent=out;
+};
+})();
 </script>
 </body>
 </html>
