@@ -1,19 +1,145 @@
 <!doctype html>
-<html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#08090d"><title>AHM Studio V7.1</title><link rel="stylesheet" href="/style.css">
-</head><body>
-<header class="topbar"><div class="brand"><span class="logo">A</span><div><b>AHM STUDIO</b><small>AI FILM STUDIO • V7.1</small></div></div><div class="top-actions"><button id="settingsBtn" class="ghost">⚙ Settings</button><button id="newBtn" class="ghost">＋ New Project</button></div></header>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#08090d">
+<title>AHM Studio V8</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">A</span>
+    <div><b>AHM STUDIO</b><small>AI FILM DIRECTOR • V8</small></div>
+  </div>
+  <div class="top-actions">
+    <button id="healthBtn" class="ghost">● System</button>
+    <button id="settingsBtn" class="ghost">⚙ Setup</button>
+    <button id="newBtn" class="ghost">＋ New</button>
+  </div>
+</header>
+
 <main>
-<section class="hero"><div><span class="eyebrow">WRITE • DIRECT • GENERATE</span><h1>One screenplay → one continuous episodic AI film.</h1><p>AHM locks your story, dialogue and character identity, then creates compact cinematic GPU shots and Part 1–6 continuity.</p></div><span class="status"><i></i> Director Ready</span></section>
-<section class="card"><div class="section-head"><div><span class="step">01</span><h2>Your Screenplay</h2></div><span id="wordBadge">0 words</span></div><textarea id="screenplay" spellcheck="false" placeholder="Paste your complete screenplay here...\n\nSCENE 1 — TITLE\nLOCATION:\nACTION:\nDIALOGUE:\nNAME: \"Dialogue\"\nEMOTION:\nSOUND:\n\nSCENE 2 — TITLE\n..."></textarea><div class="toolbar"><button id="loadTest" class="secondary">Load Golden Fish Test</button><button id="clearScript" class="secondary">Clear</button><button id="saveDraft" class="secondary">💾 Save Draft</button><span id="scriptStatus" class="hint">No API request is made when building the Director plan.</span></div></section>
-<section class="grid2">
-<div class="card"><div class="section-head"><div><span class="step">02</span><h2>Character Library</h2></div><button id="addChar" class="secondary">＋ Add Character</button></div><div id="chars"></div></div>
-<div class="card"><div class="section-head"><div><span class="step">03</span><h2>Production</h2></div></div><label>Visual Style<select id="style"><option>Cinematic Live Action</option><option>Photoreal Fantasy</option><option>Cinematic 3D</option><option>Stylized Animation</option></select></label><label>Format<select id="format"><option value="9:16">9:16 — TikTok / Reels / Shorts</option><option value="16:9">16:9 — YouTube / Film</option><option value="1:1">1:1 — Square</option></select></label><label>Target Length<select id="length"><option value="180">3 minutes</option><option value="240" selected>4 minutes</option><option value="300">5 minutes</option></select></label><label>Parts<select id="parts"><option value="5">5 continuous parts</option><option value="6" selected>6 continuous parts</option></select></label><label>Subtitles<select id="subtitles"><option value="true" selected>Burn / create exact dialogue subtitles</option><option value="false">No subtitles</option></select></label><label class="check"><input id="noNarrator" type="checkbox" checked> No narrator / voice-over unless screenplay requests it</label></div>
+<section class="hero">
+  <div>
+    <span class="eyebrow">WRITE • DIRECT • GENERATE</span>
+    <h1>Turn one screenplay into a continuous AI film.</h1>
+    <p>AHM locks your story, dialogue, characters, continuity and shot design before any GPU job is submitted.</p>
+  </div>
+  <span id="systemStatus" class="status"><i></i> Checking…</span>
 </section>
-<section class="card director"><div class="director-head"><div><span class="step">04</span><h2>AHM Director</h2><p id="directorStatus">Ready. Build the production plan locally.</p></div><div class="director-actions"><button id="build" class="primary">🧠 BUILD DIRECTOR PLAN</button><button id="generate" class="secondary" disabled>🎬 GENERATE VIDEO</button></div></div><div id="planView" class="hidden"></div></section>
+
+<section class="card">
+  <div class="section-head">
+    <div><span class="step">01</span><h2>Your Screenplay</h2></div>
+    <span id="wordBadge">0 words</span>
+  </div>
+  <textarea id="screenplay" spellcheck="false" placeholder="Paste your complete screenplay here..."></textarea>
+  <div class="toolbar">
+    <button id="loadTest" class="secondary">Load Golden Fish Test</button>
+    <button id="clearScript" class="secondary">Clear</button>
+    <button id="saveDraft" class="secondary">💾 Save Draft</button>
+    <span id="scriptStatus" class="hint">Building the Director plan does not spend GPU credits.</span>
+  </div>
+</section>
+
+<section class="grid2">
+<div class="card">
+  <div class="section-head">
+    <div><span class="step">02</span><h2>Character Library</h2></div>
+    <button id="addChar" class="secondary">＋ Add Character</button>
+  </div>
+  <div id="chars"></div>
+</div>
+
+<div class="card">
+  <div class="section-head"><div><span class="step">03</span><h2>Production</h2></div></div>
+  <label>Visual Style
+    <select id="style">
+      <option>Cinematic Live Action</option>
+      <option>Photoreal Fantasy</option>
+      <option>Cinematic 3D</option>
+      <option>Stylized Animation</option>
+    </select>
+  </label>
+  <label>Format
+    <select id="format">
+      <option value="9:16">9:16 — TikTok / Reels / Shorts</option>
+      <option value="16:9">16:9 — YouTube / Film</option>
+      <option value="1:1">1:1 — Square</option>
+    </select>
+  </label>
+  <label>Target Length
+    <select id="length">
+      <option value="60">1 minute</option>
+      <option value="180">3 minutes</option>
+      <option value="240" selected>4 minutes</option>
+      <option value="300">5 minutes</option>
+    </select>
+  </label>
+  <label>Parts
+    <select id="parts">
+      <option value="5">5 continuous parts</option>
+      <option value="6" selected>6 continuous parts</option>
+    </select>
+  </label>
+  <label>Subtitles
+    <select id="subtitles">
+      <option value="true" selected>Exact dialogue subtitles</option>
+      <option value="false">No subtitles</option>
+    </select>
+  </label>
+  <label class="check"><input id="noNarrator" type="checkbox" checked> No narrator unless screenplay requests it</label>
+</div>
+</section>
+
+<section class="card director">
+  <div class="director-head">
+    <div>
+      <span class="step">04</span>
+      <h2>AHM Director</h2>
+      <p id="directorStatus">Ready. Build the production plan locally.</p>
+    </div>
+    <div class="director-actions">
+      <button id="build" class="primary">🧠 BUILD DIRECTOR PLAN</button>
+      <button id="testGpu" class="secondary">🧪 TEST RUNPOD</button>
+      <button id="generate" class="secondary" disabled>🎬 GENERATE VIDEO</button>
+    </div>
+  </div>
+  <div id="planView" class="hidden"></div>
+</section>
+
 <section id="generationView" class="card hidden"></section>
 </main>
-<div id="settingsModal" class="modal hidden"><div class="modal-card"><div class="modal-head"><div><b>AHM Connection</b><small>Your API key stays on the server.</small></div><button id="closeSettings" class="icon">×</button></div><label>Mode<select id="mode"><option value="serverless">RunPod Serverless</option><option value="direct">Direct HTTP Worker / Pod</option></select></label><label>RunPod Endpoint ID<input id="endpoint" placeholder="e.g. abc123..." autocomplete="off"></label><label>Worker URL (Direct mode only)<input id="workerUrl" placeholder="https://..." autocomplete="off"></label><label>RunPod API Key<input id="apiKey" type="password" placeholder="Paste your API key when you're ready" autocomplete="new-password"></label><div class="row"><button id="clearKey" class="secondary">Clear saved key</button><button id="saveSettings" class="primary">Save Settings</button></div><p id="settingsStatus" class="hint">No key is required to build a local Director plan.</p></div></div>
-<div id="charModal" class="modal hidden"><div class="modal-card"><div class="modal-head"><div><b id="charTitle">Add Character</b><small>Identity lock for every shot.</small></div><button id="closeChar" class="icon">×</button></div><input id="charId" type="hidden"><label>Name<input id="cName" placeholder="Elias"></label><label>Role / age<input id="cRole" placeholder="45-year-old fisherman"></label><label>Appearance / wardrobe<textarea id="cLook"></textarea></label><label>Personality<textarea id="cPersonality"></textarea></label><label>Voice<textarea id="cVoice"></textarea></label><div class="row"><button id="saveChar" class="primary">Save Character</button></div></div></div>
-<script src="/app.js"></script></body></html>
+
+<div id="settingsModal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div><b>AHM Connection</b><small>Secrets stay on Render — never in browser JavaScript.</small></div>
+      <button id="closeSettings" class="icon">×</button>
+    </div>
+    <div id="setupBox" class="setup"></div>
+    <button id="refreshSettings" class="secondary">↻ Refresh Connection Status</button>
+  </div>
+</div>
+
+<div id="charModal" class="modal hidden">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div><b id="charTitle">Add Character</b><small>Identity lock for every shot.</small></div>
+      <button id="closeChar" class="icon">×</button>
+    </div>
+    <input id="charId" type="hidden">
+    <label>Name<input id="cName" placeholder="Elias"></label>
+    <label>Role / age<input id="cRole" placeholder="45-year-old fisherman"></label>
+    <label>Appearance / wardrobe<textarea id="cLook"></textarea></label>
+    <label>Personality<textarea id="cPersonality"></textarea></label>
+    <label>Voice<textarea id="cVoice"></textarea></label>
+    <div class="row"><button id="saveChar" class="primary">Save Character</button></div>
+  </div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
