@@ -1,9 +1,29 @@
-# AHM Worker
+# AHM RunPod Worker
 
-The web app submits a single `ahm_video_project` payload to RunPod Serverless.
-The worker contract is deliberately model-agnostic because the exact Wan/ComfyUI
-workflow is not part of the V7 source bundle.
+This worker implements the AHM Studio contract.
 
-Before spending GPU credits, connect your actual video workflow inside
-`handler.py`. Set `AHM_RENDERER=demo` to verify the RunPod endpoint contract
-without rendering a video.
+## Demo mode
+
+Set:
+
+    AHM_WORKER_MODE=demo
+
+The worker validates the project and returns a manifest. No video is rendered and no model is loaded.
+
+## Production mode
+
+Set:
+
+    AHM_WORKER_MODE=production
+
+Then replace `render_project()` with the actual video workflow.
+
+The project arrives as:
+
+{
+  "job_type": "ahm_video_project",
+  "director_version": "8.0",
+  "project": { ...director plan... }
+}
+
+The worker can then call your ComfyUI/Wan pipeline and return URLs/metadata for the rendered assets.
