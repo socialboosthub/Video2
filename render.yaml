@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: ahm-studio
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 20.19.0
+      - key: NODE_ENV
+        value: production
+      - key: RUNPOD_API_KEY
+        sync: false
+      - key: RUNPOD_ENDPOINT_ID
+        sync: false
+      - key: AHM_WORKER_MODE
+        value: demo
+      - key: AHM_ADMIN_TOKEN
+        sync: false

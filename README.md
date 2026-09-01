@@ -1,51 +1,84 @@
-# AHM Studio V7.1 — Clean Replacement
+# AHM Studio V8
 
-AHM Studio is a screenplay-first AI film director for 9:16 short-form movies.
+AHM Studio is a screenplay-first episodic AI film director.
 
-## What is fixed
+## What this version does
 
-- The old V7 placeholder plan/generate endpoints are replaced with real JSON API routes.
-- API 404s are JSON, not HTML, preventing browser errors such as `Unexpected token 'T'`.
-- Settings has a working close button and stores the RunPod key server-side only.
-- Building the Director plan never calls RunPod.
-- Generate is the only paid action and requires a saved API key.
-- RunPod Serverless uses the documented `/run`, `/status/<job-id>`, and `/health` operations.
-- The screenplay parser preserves explicit SCENE blocks, exact dialogue, character bible data, continuity, emotion and sound.
-- Production coverage is compact: a scene becomes a small number of cinematic GPU shots instead of one shot per sentence.
-- Scenes are grouped into 5 or 6 continuous parts without inventing story events.
-- Exact dialogue can be exported as SRT per episode.
-- Drafts are stored under `data/projects/` locally.
-- A direct HTTP worker mode is included for a custom worker/Pod endpoint.
+- Parses explicit screenplay scenes.
+- Locks characters, dialogue, continuity and production constraints.
+- Creates a cinematic shot plan.
+- Creates subtitle SRT files.
+- Saves projects locally when the server filesystem is persistent.
+- Connects securely to a RunPod Serverless endpoint through server-side environment variables.
+- Includes a `demo` worker mode for testing the complete RunPod request/status pipeline without spending GPU credits.
 
-## Run locally
+## Important: actual video rendering
 
-1. Install Node.js 18+.
-2. Copy `.env.example` to `.env`.
-3. Run `npm install`.
-4. Run `npm start`.
-5. Open `http://localhost:3000`.
-6. Paste your screenplay and press **BUILD DIRECTOR PLAN**.
+The web app is a gateway/director. RunPod must have a real video-generation worker behind the endpoint.
 
-No RunPod key is needed for steps 1–6.
+The included worker is deliberately safe in `demo` mode. It validates the AHM payload and returns a manifest. It does NOT generate video.
 
-## RunPod
+For real video generation, connect your chosen ComfyUI/Wan workflow to `worker/handler.py` and deploy that worker as the RunPod endpoint.
 
-For Serverless mode, save the RunPod API key and Endpoint ID in Settings. The
-server stores the key and never returns it through `/api/settings`.
+## Render deployment
 
-The official RunPod Serverless API uses:
+Create a Render Web Service from this repository.
 
-- `POST https://api.runpod.ai/v2/<endpoint-id>/run`
-- `GET https://api.runpod.ai/v2/<endpoint-id>/status/<job-id>`
-- `GET https://api.runpod.ai/v2/<endpoint-id>/health`
+Build command:
 
-The worker must contain your actual video generation workflow. The included
-worker is a contract-safe adapter; it does not pretend to render video without
-a configured model/workflow.
+    npm install
 
-## GitHub / Vercel note
+Start command:
 
-The project can be deployed as a normal Node/Express service. Do not commit
-`.env` or `data/settings.json`. For a public deployment, use platform
-environment variables (`RUNPOD_API_KEY`, `RUNPOD_ENDPOINT_ID`) instead of
-file-based secret storage.
+    npm start
+
+Health check:
+
+    /api/health
+
+Add these environment variables in Render:
+
+    RUNPOD_API_KEY=your_real_key
+    RUNPOD_ENDPOINT_ID=your_endpoint_id
+    AHM_WORKER_MODE=demo
+
+Do not put the RunPod key in GitHub or in public JavaScript. Render environment variables are intended for secrets.
+
+## First test — no GPU charge
+
+1. Deploy the web service.
+2. Leave `AHM_WORKER_MODE=demo`.
+3. Open the app.
+4. Load the Golden Fish test.
+5. Click BUILD DIRECTOR PLAN.
+6. Click TEST RUNPOD CONNECTION.
+7. If the endpoint and worker are correctly deployed, the test job should complete and show the demo manifest.
+
+## Production rendering
+
+After the demo contract works:
+
+1. Deploy a real video worker to RunPod.
+2. Set `AHM_WORKER_MODE=production` on the RunPod worker.
+3. Set the same endpoint ID in Render.
+4. Run one short test generation.
+5. Only then increase duration/parts/GPU settings.
+
+## Architecture
+
+Browser
+  -> Render /api/director/plan
+  -> Render /api/generate
+  -> RunPod Serverless /run
+  -> AHM worker
+  -> video workflow
+  -> RunPod /status/{jobId}
+  -> Render
+  -> Browser
+
+## Security
+
+The RunPod API key is read only by `server.js` from `RUNPOD_API_KEY`.
+It is never sent to the browser.
+
+Render's filesystem should not be treated as permanent storage. For durable projects, connect a database/object storage later.

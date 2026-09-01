@@ -1,19 +1,18 @@
 {
-  "name": "ahm-studio-v7-clean",
-  "version": "7.1.0",
+  "name": "ahm-studio-v8",
+  "version": "8.0.0",
   "private": true,
-  "description": "AHM Studio screenplay-first episodic AI film director",
+  "description": "AHM Studio — screenplay-first episodic AI film director and RunPod gateway",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js"
   },
+  "engines": {
+    "node": "20.x"
+  },
   "dependencies": {
     "dotenv": "^16.4.7",
-    "express": "^4.21.2",
-    "uuid": "^11.0.1"
-  },
-  "engines": {
-    "node": ">=18"
+    "express": "^4.21.2"
   }
 }
