@@ -1,50 +1,51 @@
-# AHM Studio V7
+# AHM Studio V7.1 — Clean Replacement
 
-A screenplay-first AI film web app. It replaces the fragile trial director with a production director that:
-- parses explicit SCENE blocks;
-- keeps dialogue exact;
-- creates compact GPU shot plans instead of exploding every line into a useless shot;
-- groups scenes into continuous Part 1–6 episodes;
-- creates SRT subtitles from exact dialogue;
-- saves projects and character data locally on the server;
-- keeps the RunPod API key server-side and never sends it to browser JavaScript;
-- submits one structured `ahm_video_project` job to a RunPod Serverless endpoint.
+AHM Studio is a screenplay-first AI film director for 9:16 short-form movies.
+
+## What is fixed
+
+- The old V7 placeholder plan/generate endpoints are replaced with real JSON API routes.
+- API 404s are JSON, not HTML, preventing browser errors such as `Unexpected token 'T'`.
+- Settings has a working close button and stores the RunPod key server-side only.
+- Building the Director plan never calls RunPod.
+- Generate is the only paid action and requires a saved API key.
+- RunPod Serverless uses the documented `/run`, `/status/<job-id>`, and `/health` operations.
+- The screenplay parser preserves explicit SCENE blocks, exact dialogue, character bible data, continuity, emotion and sound.
+- Production coverage is compact: a scene becomes a small number of cinematic GPU shots instead of one shot per sentence.
+- Scenes are grouped into 5 or 6 continuous parts without inventing story events.
+- Exact dialogue can be exported as SRT per episode.
+- Drafts are stored under `data/projects/` locally.
+- A direct HTTP worker mode is included for a custom worker/Pod endpoint.
 
 ## Run locally
-1. Install Node 18+.
+
+1. Install Node.js 18+.
 2. Copy `.env.example` to `.env`.
-3. `npm install`
-4. `npm start`
+3. Run `npm install`.
+4. Run `npm start`.
 5. Open `http://localhost:3000`.
+6. Paste your screenplay and press **BUILD DIRECTOR PLAN**.
 
-You can paste the RunPod key and endpoint ID into Settings. The key is stored server-side in `data/settings.json` and is never returned by `/api/settings`. For a deployed service, prefer platform environment variables instead of file storage.
+No RunPod key is needed for steps 1–6.
 
-## Important worker contract
-The web app sends:
+## RunPod
 
-```json
-{
-  "input": {
-    "job_type": "ahm_video_project",
-    "director_version": "7",
-    "project": {
-      "episodes": [
-        {"episode":1,"title":"Part 1","duration":40,"scenes":[...]}
-      ],
-      "format":"9:16",
-      "subtitles":true
-    }
-  }
-}
-```
+For Serverless mode, save the RunPod API key and Endpoint ID in Settings. The
+server stores the key and never returns it through `/api/settings`.
 
-Your RunPod worker must accept this contract and return either:
+The official RunPod Serverless API uses:
 
-```json
-{"episodes":[{"episode":1,"video_url":"https://...","subtitle_url":"https://..."}]}
-```
+- `POST https://api.runpod.ai/v2/<endpoint-id>/run`
+- `GET https://api.runpod.ai/v2/<endpoint-id>/status/<job-id>`
+- `GET https://api.runpod.ai/v2/<endpoint-id>/health`
 
-or any JSON object your worker defines. The UI will display the returned job ID and result JSON. This is intentional: the director cannot know the exact model/workflow inside your RunPod endpoint. The endpoint must be configured to render video.
+The worker must contain your actual video generation workflow. The included
+worker is a contract-safe adapter; it does not pretend to render video without
+a configured model/workflow.
 
-## Cost safety
-The Director button only creates the plan locally. It does not call RunPod. The Generate button is the only action that submits a paid job. RunPod's `/run` is asynchronous and is intended for long-running jobs; job status is polled with `/status`. See the official docs for the exact endpoint behavior.
+## GitHub / Vercel note
+
+The project can be deployed as a normal Node/Express service. Do not commit
+`.env` or `data/settings.json`. For a public deployment, use platform
+environment variables (`RUNPOD_API_KEY`, `RUNPOD_ENDPOINT_ID`) instead of
+file-based secret storage.
