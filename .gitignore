@@ -1,6 +1,0 @@
-node_modules/
-.env
-data/settings.json
-data/projects/
-*.mp4
-*.srt
