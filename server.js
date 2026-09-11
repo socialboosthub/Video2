@@ -1,2472 +1,1255 @@
-require("dotenv").config();
+require('dotenv').config();
 
-const express = require("express");
-const fs = require("fs");
-const path = require("path");
-const crypto = require("crypto");
+const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
 
 const app = express();
-
-/* =========================================================
-   AHM STUDIO V8.2
-   AI FILM DIRECTOR
-   ---------------------------------------------------------
-   FIXED:
-   - robust screenplay parsing
-   - dialogue section parsing
-   - multiline dialogue
-   - blank-line-safe dialogue
-   - character speaker detection
-   - action/dialogue separation
-   - exact duration allocation
-   - balanced parts
-   - dedicated dialogue shots
-   - exact subtitles
-   - RunPod integration
-   - demo-mode safety
-========================================================= */
-
-/* =========================================================
-   CONFIG
-========================================================= */
-
 const PORT = Number(process.env.PORT || 10000);
+const HOST = '0.0.0.0';
 
-const RUNPOD_API_KEY = String(
-  process.env.RUNPOD_API_KEY || ""
-).trim();
+const ROOT = __dirname;
+const PUBLIC_DIR = path.join(ROOT, 'public');
+const DATA_DIR = path.join(ROOT, 'data');
+const PROJECTS_DIR = path.join(DATA_DIR, 'projects');
+const JOBS_DIR = path.join(DATA_DIR, 'jobs');
 
-const RUNPOD_ENDPOINT_ID = String(
-  process.env.RUNPOD_ENDPOINT_ID || ""
-).trim();
-
-const WORKER_MODE = String(
-  process.env.AHM_WORKER_MODE || "demo"
-)
-  .trim()
-  .toLowerCase();
-
-const DIRECTOR_VERSION = "8.2";
-
-const PUBLIC_DIR = path.join(__dirname, "public");
-const DATA_DIR = path.join(__dirname, "data");
-const PROJECTS_DIR = path.join(DATA_DIR, "projects");
-
+const DIRECTOR_VERSION = '8.2';
+const MAX_BODY = '25mb';
 const MAX_SCREENPLAY_BYTES = 2 * 1024 * 1024;
 const MAX_PROJECT_BYTES = 8 * 1024 * 1024;
 
-const ALLOWED_FORMATS = new Set([
-  "9:16",
-  "16:9",
-  "1:1"
-]);
+const ALLOWED_FORMATS = new Set(['9:16', '16:9', '1:1']);
 
-/* =========================================================
-   DIRECTOR STRUCTURAL LABELS
-========================================================= */
+fs.mkdirSync(PROJECTS_DIR, { recursive: true });
+fs.mkdirSync(JOBS_DIR, { recursive: true });
 
-const STRUCTURAL_LABELS = new Set([
-  "LOCATION",
-  "ACTION",
-  "DIALOGUE",
-  "DIALOGUE — LOCKED",
-  "DIALOGUE - LOCKED",
-  "STYLE",
-  "MAIN CHARACTERS",
-  "CHARACTERS",
-  "CHARACTER",
-  "IMPORTANT",
-  "CONTINUITY",
-  "VISUAL STYLE",
-  "FORMAT",
-  "TARGET LENGTH",
-  "PARTS",
-  "SUBTITLES",
-  "NARRATOR",
-  "VOICE OVER",
-  "VOICEOVER",
-  "SOUND",
-  "MUSIC",
-  "CAMERA"
-]);
+app.disable('x-powered-by');
+app.use(express.json({ limit: MAX_BODY }));
 
-/* =========================================================
-   STARTUP DIRECTORIES
-========================================================= */
+function json(res, status, body) {
+  return res
+    .status(status)
+    .type('application/json')
+    .send(JSON.stringify(body));
+}
 
-fs.mkdirSync(PROJECTS_DIR, {
-  recursive: true
-});
+function makeId(prefix = '') {
+  return `${prefix}${crypto.randomUUID()}`;
+}
 
-/* =========================================================
-   EXPRESS
-========================================================= */
+function text(v) {
+  return String(v == null ? '' : v).trim();
+}
 
-app.disable("x-powered-by");
+function cleanText(v) {
+  return text(v).replace(/[ \t]+/g, ' ').trim();
+}
 
-app.use(
-  express.json({
-    limit: "10mb"
-  })
-);
+function wordCount(v) {
+  const s = cleanText(v);
+  return s ? s.split(/\s+/).length : 0;
+}
 
-app.use(
-  express.urlencoded({
-    extended: true,
-    limit: "10mb"
-  })
-);
+function readJson(file, fallback = null) {
+  try {
+    return JSON.parse(fs.readFileSync(file, 'utf8'));
+  } catch {
+    return fallback;
+  }
+}
 
-/* =========================================================
-   BASIC HELPERS
-========================================================= */
+function writeJson(file, value) {
+  fs.mkdirSync(path.dirname(file), { recursive: true });
+  fs.writeFileSync(file, JSON.stringify(value, null, 2), 'utf8');
+}
 
-function makeId() {
-  if (typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
+function safeProjectId(v) {
+  const s = text(v)
+    .replace(/[^a-zA-Z0-9_-]/g, '_')
+    .slice(0, 100);
+
+  return s || 'project';
+}
+
+function stripOuterQuotes(v) {
+  let s = text(v);
+
+  if (
+    (s.startsWith('"') && s.endsWith('"')) ||
+    (s.startsWith('“') && s.endsWith('”')) ||
+    (s.startsWith('‘') && s.endsWith('’'))
+  ) {
+    s = s.slice(1, -1).trim();
   }
 
-  return (
-    Date.now() +
-    "-" +
-    crypto.randomBytes(8).toString("hex")
-  );
+  return s;
 }
 
-function safeNumber(value, fallback) {
-  const number = Number(value);
+const STRUCTURAL_LABELS = new Set([
+  'STYLE',
+  'IMPORTANT',
+  'CONSTRAINT',
+  'CONSTRAINTS',
+  'RULE',
+  'RULES',
+  'LOCATION',
+  'ACTION',
+  'DIALOGUE',
+  'EMOTION',
+  'SOUND',
+  'CONTINUITY',
+  'CAMERA',
+  'AUDIO',
+  'ENVIRONMENT',
+  'ROLE',
+  'LOOK',
+  'PERSONALITY',
+  'VOICE',
+  'WARDROBE',
+  'CHARACTER',
+  'CHARACTERS',
+  'DIRECTOR INSTRUCTION',
+  'VISUAL STYLE',
+  'FORMAT',
+  'SUBTITLES',
+  'NARRATOR'
+]);
 
-  return Number.isFinite(number)
-    ? number
-    : fallback;
-}
-
-function clamp(value, min, max) {
-  return Math.max(
-    min,
-    Math.min(max, value)
-  );
-}
-
-function round(value) {
-  return Math.round(value);
-}
-
-function cleanText(value) {
-  return String(value || "")
-    .replace(/\r/g, "")
-    .replace(/\u00A0/g, " ")
-    .replace(/[ \t]+/g, " ")
-    .trim();
-}
-
-function normalizeSpeaker(value) {
-  return cleanText(value)
-    .replace(/\s+/g, " ")
+function normalizeSpeaker(v) {
+  return cleanText(v)
+    .replace(/^['"“”]+|['"“”]+$/g, '')
     .toUpperCase();
 }
 
-function cleanDialogueText(value) {
-  return cleanText(value)
-    .replace(/^["“]/, "")
-    .replace(/["”]$/, "")
-    .trim();
-}
-
-function countWords(text) {
-  return cleanText(text)
-    .split(/\s+/)
-    .filter(Boolean)
-    .length;
-}
-
-function fileSizeBytes(text) {
-  return Buffer.byteLength(
-    String(text || ""),
-    "utf8"
-  );
-}
-
-function jsonError(
-  res,
-  status,
-  message,
-  extra = {}
-) {
-  return res.status(status).json({
-    ok: false,
-    error: message,
-    ...extra
-  });
-}
-
-function jsonOk(res, data = {}) {
-  return res.json({
-    ok: true,
-    ...data
-  });
-}
-
-function sanitizeFilename(value) {
-  return String(value || "project")
-    .replace(
-      /[^a-zA-Z0-9._-]/g,
-      "_"
-    )
-    .slice(0, 100);
-}
-
-/* =========================================================
-   SCREENPLAY NORMALIZATION
-========================================================= */
-
-function normalizeScreenplay(raw) {
-  return String(raw || "")
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .replace(/\u00A0/g, " ")
-    .replace(/[“”]/g, '"')
-    .replace(/[‘’]/g, "'")
-    .replace(/\u2014/g, "—")
-    .replace(/\u2013/g, "–")
-    .trim();
-}
-
-/* =========================================================
-   SCENE DETECTION
-========================================================= */
-
-function isSceneHeading(line) {
-  const value = cleanText(line);
-
-  return /^SCENE\s+\d+\s*[—:-]/i.test(
-    value
-  );
-}
-
-function extractSceneNumber(line) {
-  const match = cleanText(line).match(
-    /^SCENE\s+(\d+)/i
-  );
-
-  return match
-    ? Number(match[1])
-    : null;
-}
-
-function extractSceneTitle(line) {
-  const value = cleanText(line);
-
-  const match = value.match(
-    /^SCENE\s+\d+\s*[—:-]\s*(.+)$/i
-  );
-
-  return match
-    ? cleanText(match[1])
-    : value;
-}
-
-/* =========================================================
-   STRUCTURAL LABEL HELPERS
-========================================================= */
-
-function getStructuralLabel(line) {
-  const value = cleanText(line);
-
-  const match = value.match(
-    /^([A-Za-z][A-Za-z0-9 _.'-]{0,80})\s*:\s*(.*)$/u
-  );
-
-  if (!match) {
-    return null;
-  }
-
-  const label = normalizeSpeaker(
-    match[1]
-  );
-
-  if (!STRUCTURAL_LABELS.has(label)) {
-    return null;
-  }
-
-  return {
-    label,
-    value: cleanText(match[2])
-  };
-}
-
-function isStructuralLine(line) {
-  const value = cleanText(line);
-
-  if (!value) {
-    return false;
-  }
-
-  if (
-    /^(LOCATION|ACTION|DIALOGUE|DIALOGUE — LOCKED|DIALOGUE - LOCKED|STYLE|IMPORTANT|MAIN CHARACTERS|CHARACTERS|CHARACTER|CONTINUITY|VISUAL STYLE|FORMAT|TARGET LENGTH|PARTS|SUBTITLES|NARRATOR|VOICE OVER|VOICEOVER|SOUND|MUSIC|CAMERA)\s*:/i.test(
-      value
-    )
-  ) {
-    return true;
-  }
-
-  return /^(LOCATION|ACTION|DIALOGUE|DIALOGUE — LOCKED|DIALOGUE - LOCKED|STYLE|IMPORTANT|MAIN CHARACTERS|CHARACTERS|CHARACTER|CONTINUITY|VISUAL STYLE|FORMAT|TARGET LENGTH|PARTS|SUBTITLES|NARRATOR|VOICE OVER|VOICEOVER|SOUND|MUSIC|CAMERA)$/i.test(
-    value
-  );
-}
-
-/* =========================================================
-   SPEAKER LABEL DETECTION
-========================================================= */
-
 function parseSpeakerLine(line) {
-  const value = cleanText(line);
-
-  if (!value) {
-    return null;
-  }
-
-  const match = value.match(
-    /^([A-Za-z][A-Za-z0-9 _.'-]{0,60})\s*:\s*(.*)$/u
+  const m = text(line).match(
+    /^([A-Z][A-Z0-9 _'&.-]{0,60})\s*:\s*(.*)$/i
   );
 
-  if (!match) {
-    return null;
-  }
+  if (!m) return null;
 
-  const speaker = normalizeSpeaker(
-    match[1]
-  );
+  const speaker = normalizeSpeaker(m[1]);
 
-  if (
-    STRUCTURAL_LABELS.has(speaker)
-  ) {
-    return null;
-  }
-
-  /*
-   * Prevent normal prose containing a colon from being
-   * treated as dialogue.
-   *
-   * Speaker labels should look like names:
-   * ELIAS
-   * MARA
-   * GOLDEN FISH
-   * PEOPLE
-   */
-  if (
-    !/^[A-Z][A-Z0-9 _.'-]{0,60}$/.test(
-      speaker
-    )
-  ) {
+  if (!speaker || STRUCTURAL_LABELS.has(speaker)) {
     return null;
   }
 
   return {
     speaker,
-    text: cleanDialogueText(
-      match[2]
-    )
+    value: stripOuterQuotes(m[2])
   };
 }
 
-/* =========================================================
-   DIALOGUE PARSER
-   ---------------------------------------------------------
-   This is the critical V8.2 fix.
+function parseSceneHeading(line) {
+  const m = text(line).match(
+    /^SCENE\s+(\d+)\s*(?:—|–|-|:)\s*(.*)$/i
+  );
 
-   Supported formats:
+  if (!m) return null;
 
-   ELIAS:
-   "Where are you?"
+  return {
+    number: Number(m[1]),
+    title: cleanText(m[2]) || `Scene ${m[1]}`
+  };
+}
 
-   ELIAS: "Where are you?"
+function parseHeader(line) {
+  const m = text(line).match(
+    /^(LOCATION|ACTION|DIALOGUE|EMOTION|SOUND|CONTINUITY)\s*:\s*(.*)$/i
+  );
 
-   MARA:
-   Where are you?
+  if (!m) return null;
 
-   GOLDEN FISH:
-   "I can grant one wish."
+  return {
+    name: m[1].toLowerCase(),
+    value: cleanText(m[2])
+  };
+}
 
-   DIALOGUE:
-   ELIAS:
-   "Hello."
+function addSceneLine(scene, section, line, pendingSpeaker) {
+  const value = cleanText(line);
 
-   MARA:
-   "Goodbye."
-========================================================= */
-
-function parseDialogueFromLines(
-  lines
-) {
-  const dialogue = [];
-
-  let currentSpeaker = null;
-  let currentParts = [];
-  let dialogueSection = false;
-
-  function flushDialogue() {
-    if (
-      !currentSpeaker ||
-      !currentParts.length
-    ) {
-      currentSpeaker = null;
-      currentParts = [];
-      return;
-    }
-
-    const text = cleanDialogueText(
-      currentParts.join(" ")
-    );
-
-    if (text) {
-      dialogue.push({
-        id: makeId(),
-        speaker: currentSpeaker,
-        text
-      });
-    }
-
-    currentSpeaker = null;
-    currentParts = [];
+  if (!value) {
+    return { pendingSpeaker };
   }
 
-  for (
-    let index = 0;
-    index < lines.length;
-    index++
-  ) {
-    const raw = String(
-      lines[index] || ""
-    );
-
-    const line = cleanText(raw);
-
-    /*
-     * IMPORTANT:
-     * Blank lines do NOT flush dialogue.
-     *
-     * This fixes the previous V8.1 bug.
-     */
-    if (!line) {
-      continue;
-    }
-
-    /*
-     * Scene headings always terminate the current dialogue.
-     */
-    if (isSceneHeading(line)) {
-      flushDialogue();
-      dialogueSection = false;
-      continue;
-    }
-
-    /*
-     * Structural labels.
-     */
-    const structural =
-      getStructuralLabel(line);
-
-    if (structural) {
-      const label =
-        structural.label;
-
-      /*
-       * DIALOGUE: explicitly enters dialogue mode.
-       */
-      if (
-        label === "DIALOGUE" ||
-        label === "DIALOGUE — LOCKED" ||
-        label === "DIALOGUE - LOCKED"
-      ) {
-        flushDialogue();
-        dialogueSection = true;
-
-        /*
-         * Rare format:
-         * DIALOGUE: ELIAS says hello
-         *
-         * We do not invent a speaker here.
-         */
-        continue;
-      }
-
-      /*
-       * ACTION or LOCATION terminates dialogue mode.
-       */
-      if (
-        label === "ACTION" ||
-        label === "LOCATION"
-      ) {
-        flushDialogue();
-        dialogueSection = false;
-        continue;
-      }
-
-      /*
-       * Other structural sections terminate dialogue too.
-       */
-      flushDialogue();
-      dialogueSection = false;
-      continue;
-    }
-
-    /*
-     * Speaker line.
-     */
-    const speakerLine =
-      parseSpeakerLine(line);
+  if (section === 'dialogue') {
+    const speakerLine = parseSpeakerLine(value);
 
     if (speakerLine) {
-      /*
-       * New speaker means previous speaker is complete.
-       */
-      flushDialogue();
+      if (speakerLine.value) {
+        scene.dialogue.push({
+          speaker: speakerLine.speaker,
+          text: speakerLine.value
+        });
 
-      currentSpeaker =
-        speakerLine.speaker;
-
-      if (speakerLine.text) {
-        currentParts.push(
-          speakerLine.text
-        );
-
-        /*
-         * Same-line dialogue is complete.
-         */
-        flushDialogue();
+        return {
+          pendingSpeaker: null
+        };
       }
 
-      /*
-       * Standalone speaker:
-       *
-       * ELIAS:
-       * "Hello."
-       *
-       * Continue reading next lines.
-       */
-      dialogueSection = true;
-
-      continue;
+      return {
+        pendingSpeaker: speakerLine.speaker
+      };
     }
 
-    /*
-     * If a speaker is currently open, collect the line.
-     *
-     * Blank lines were already ignored above, so dialogue
-     * can safely span blank lines.
-     */
-    if (currentSpeaker) {
-      /*
-       * If this looks like another structural section,
-       * terminate the dialogue.
-       */
-      if (
-        isStructuralLine(line)
-      ) {
-        flushDialogue();
-        dialogueSection = false;
-        continue;
-      }
+    if (pendingSpeaker) {
+      scene.dialogue.push({
+        speaker: pendingSpeaker,
+        text: stripOuterQuotes(value)
+      });
 
-      /*
-       * Keep quoted and normal continuation lines.
-       */
-      currentParts.push(
-        cleanDialogueText(line)
-      );
-
-      continue;
+      return {
+        pendingSpeaker: null
+      };
     }
 
-    /*
-     * DIALOGUE section without a currently open speaker:
-     *
-     * We intentionally DO NOT invent a speaker.
-     *
-     * This prevents ordinary action prose from becoming fake
-     * dialogue.
-     */
-    if (dialogueSection) {
-      continue;
-    }
+    scene.action.push(value);
+
+    return {
+      pendingSpeaker: null
+    };
   }
 
-  flushDialogue();
+  const speakerLine = parseSpeakerLine(value);
 
-  return dialogue;
-}
+  if (speakerLine) {
+    if (speakerLine.value) {
+      scene.dialogue.push({
+        speaker: speakerLine.speaker,
+        text: speakerLine.value
+      });
 
-/* =========================================================
-   LOCATION EXTRACTION
-========================================================= */
-
-function extractLocation(
-  lines
-) {
-  for (const raw of lines) {
-    const line = cleanText(raw);
-
-    const match =
-      line.match(
-        /^LOCATION\s*:\s*(.+)$/i
-      );
-
-    if (match) {
-      return cleanText(
-        match[1]
-      );
+      return {
+        pendingSpeaker: null
+      };
     }
+
+    return {
+      pendingSpeaker: speakerLine.speaker
+    };
   }
 
-  return "";
-}
-
-/* =========================================================
-   ACTION EXTRACTION
-   ---------------------------------------------------------
-   Uses the same speaker rules as the dialogue parser.
-========================================================= */
-
-function extractActionLines(
-  lines
-) {
-  const action = [];
-
-  let dialogueMode = false;
-  let currentSpeaker = false;
-
-  for (
-    let index = 0;
-    index < lines.length;
-    index++
-  ) {
-    const raw = String(
-      lines[index] || ""
+  if (section === 'location') {
+    scene.location = cleanText(
+      `${scene.location} ${value}`
     );
-
-    const line = cleanText(raw);
-
-    if (!line) {
-      continue;
-    }
-
-    if (isSceneHeading(line)) {
-      continue;
-    }
-
-    const structural =
-      getStructuralLabel(line);
-
-    if (structural) {
-      const label =
-        structural.label;
-
-      if (
-        label === "DIALOGUE" ||
-        label === "DIALOGUE — LOCKED" ||
-        label === "DIALOGUE - LOCKED"
-      ) {
-        dialogueMode = true;
-        currentSpeaker = false;
-        continue;
-      }
-
-      if (
-        label === "ACTION"
-      ) {
-        dialogueMode = false;
-        currentSpeaker = false;
-
-        if (structural.value) {
-          action.push(
-            structural.value
-          );
-        }
-
-        continue;
-      }
-
-      if (
-        label === "LOCATION"
-      ) {
-        dialogueMode = false;
-        currentSpeaker = false;
-        continue;
-      }
-
-      /*
-       * Other structural blocks are ignored.
-       */
-      dialogueMode = false;
-      currentSpeaker = false;
-      continue;
-    }
-
-    const speaker =
-      parseSpeakerLine(line);
-
-    if (speaker) {
-      dialogueMode = true;
-      currentSpeaker = true;
-
-      /*
-       * Speaker's same-line text is dialogue, not action.
-       */
-      continue;
-    }
-
-    if (
-      currentSpeaker ||
-      dialogueMode
-    ) {
-      /*
-       * Dialogue section content is not action.
-       */
-      continue;
-    }
-
-    action.push(line);
+  } else if (section === 'action') {
+    scene.action.push(value);
+  } else if (section === 'emotion') {
+    scene.emotion.push(value);
+  } else if (section === 'sound') {
+    scene.sound.push(value);
+  } else if (section === 'continuity') {
+    scene.continuity.push(value);
+  } else {
+    scene.action.push(value);
   }
 
-  return action;
+  return {
+    pendingSpeaker: null
+  };
 }
 
-/* =========================================================
-   BUILD ACTION TEXT
-========================================================= */
-
-function buildActionText(
-  lines
-) {
-  return extractActionLines(
-    lines
-  )
-    .map(cleanText)
-    .filter(Boolean)
-    .join(" ")
-    .trim();
+function escapeRegExp(v) {
+  return String(v).replace(
+    /[.*+?^${}()|[\]\\]/g,
+    '\\$&'
+  );
 }
 
-/* =========================================================
-   SCENE PARSER
-========================================================= */
-
-function parseScenes(
-  screenplay
-) {
-  const normalized =
-    normalizeScreenplay(
-      screenplay
-    );
-
-  const lines =
-    normalized.split("\n");
+function parseScreenplay(screenplay) {
+  const source = String(screenplay || '').replace(/\r/g, '');
+  const lines = source.split('\n');
 
   const scenes = [];
+  const characters = [];
 
-  let current = null;
+  const global = {
+    style: [],
+    constraints: [],
+    director: [],
+    continuity: []
+  };
 
-  function flushScene() {
-    if (!current) {
-      return;
+  let scene = null;
+  let section = '';
+  let pendingSpeaker = null;
+
+  let character = null;
+  let characterSection = '';
+
+  function finishCharacter() {
+    if (!character) return;
+
+    const c = {
+      name: normalizeSpeaker(character.name),
+      role: cleanText(character.role),
+      look: cleanText(character.look),
+      personality: cleanText(character.personality),
+      voice: cleanText(character.voice),
+      wardrobe: cleanText(character.wardrobe)
+    };
+
+    if (c.name) {
+      characters.push(c);
     }
 
-    const rawLines =
-      current.lines.slice();
+    character = null;
+    characterSection = '';
+  }
 
-    const location =
-      extractLocation(
-        rawLines
-      );
+  function finishScene() {
+    if (!scene) return;
 
-    const dialogue =
-      parseDialogueFromLines(
-        rawLines
-      );
+    pendingSpeaker = null;
 
-    const action =
-      buildActionText(
-        rawLines
-      );
+    scene.location = cleanText(scene.location);
 
-    scenes.push({
-      number:
-        current.number,
+    scene.action = scene.action
+      .map(cleanText)
+      .filter(Boolean);
 
-      title:
-        current.title,
+    scene.dialogue = scene.dialogue
+      .map(d => ({
+        speaker: normalizeSpeaker(d.speaker),
+        text: stripOuterQuotes(d.text)
+      }))
+      .filter(d => d.speaker && d.text);
 
-      location,
+    scene.emotion = scene.emotion
+      .map(cleanText)
+      .filter(Boolean);
 
-      action,
+    scene.sound = scene.sound
+      .map(cleanText)
+      .filter(Boolean);
 
-      dialogue,
+    scene.continuity = scene.continuity
+      .map(cleanText)
+      .filter(Boolean);
 
-      raw:
-        rawLines
-    });
+    scene.characters = [
+      ...new Set([
+        ...scene.dialogue.map(d => d.speaker),
 
-    current = null;
+        ...scene.action.flatMap(action =>
+          characters
+            .map(c => c.name)
+            .filter(name =>
+              new RegExp(
+                `\\b${escapeRegExp(name)}\\b`,
+                'i'
+              ).test(action)
+            )
+        )
+      ])
+    ];
+
+    scenes.push(scene);
+
+    scene = null;
+    section = '';
+    pendingSpeaker = null;
   }
 
   for (const raw of lines) {
-    const line = cleanText(raw);
+    const line = text(raw);
 
-    if (
-      isSceneHeading(line)
-    ) {
-      flushScene();
+    const heading = parseSceneHeading(line);
 
-      current = {
-        number:
-          extractSceneNumber(
-            line
-          ),
+    if (heading) {
+      finishCharacter();
+      finishScene();
 
-        title:
-          extractSceneTitle(
-            line
-          ),
-
-        lines: []
+      scene = {
+        number: heading.number,
+        title: heading.title,
+        location: '',
+        action: [],
+        dialogue: [],
+        emotion: [],
+        sound: [],
+        continuity: [],
+        characters: [],
+        shots: []
       };
 
+      section = 'action';
+      pendingSpeaker = null;
+
       continue;
     }
 
     /*
-     * Ignore material before the first SCENE heading.
-     */
-    if (!current) {
+      IMPORTANT:
+      Blank lines do NOT reset the dialogue section.
+      This prevents dialogue from disappearing when a screenplay
+      contains blank lines between speaker lines.
+    */
+    if (!line || /^---+$/.test(line)) {
       continue;
     }
 
-    /*
-     * Preserve blank lines inside a scene.
-     * The dialogue parser deliberately ignores them.
-     */
-    current.lines.push(
-      line
-    );
-  }
-
-  flushScene();
-
-  return scenes;
-}
-
-/* =========================================================
-   CHARACTER EXTRACTION
-========================================================= */
-
-function extractCharacters(
-  screenplay
-) {
-  const text =
-    normalizeScreenplay(
-      screenplay
-    );
-
-  const result = [];
-
-  const knownNames = [
-    "ELIAS",
-    "MARA",
-    "GOLDEN FISH",
-    "PEOPLE"
-  ];
-
-  for (const name of knownNames) {
-    const escaped =
-      name.replace(
-        /\s+/g,
-        "\\s+"
+    if (!scene) {
+      const style = line.match(
+        /^STYLE\s*:\s*(.*)$/i
       );
 
-    const regex =
-      new RegExp(
-        `^\\s*-?\\s*${escaped}\\s*:\\s*(.+)$`,
-        "im"
+      if (style) {
+        global.style.push(cleanText(style[1]));
+        continue;
+      }
+
+      const important = line.match(
+        /^(IMPORTANT|CONSTRAINTS?|RULES?)\s*:\s*(.*)$/i
       );
 
-    const match =
-      text.match(regex);
-
-    if (match) {
-      result.push({
-        name,
-        description:
-          cleanText(
-            match[1]
-          )
-      });
-    }
-  }
-
-  return result;
-}
-
-/* =========================================================
-   SPEAKER LABEL DETECTION
-========================================================= */
-
-function screenplayHasSpeakerLabels(
-  screenplay
-) {
-  const text =
-    normalizeScreenplay(
-      screenplay
-    );
-
-  return /^(ELIAS|MARA|GOLDEN FISH|PEOPLE)\s*:/im.test(
-    text
-  );
-}
-
-/* =========================================================
-   DIALOGUE COUNTS
-========================================================= */
-
-function countDialogueLines(
-  scenes
-) {
-  return scenes.reduce(
-    (total, scene) =>
-      total +
-      scene.dialogue.length,
-    0
-  );
-}
-
-function countDialogueWords(
-  scenes
-) {
-  return scenes.reduce(
-    (total, scene) =>
-      total +
-      scene.dialogue.reduce(
-        (sum, line) =>
-          sum +
-          countWords(
-            line.text
-          ),
-        0
-      ),
-    0
-  );
-}
-
-/* =========================================================
-   RAW SCENE DURATION
-========================================================= */
-
-function estimateSceneSeconds(
-  scene
-) {
-  const actionWords =
-    countWords(
-      scene.action
-    );
-
-  const dialogueWords =
-    scene.dialogue.reduce(
-      (sum, line) =>
-        sum +
-        countWords(
-          line.text
-        ),
-      0
-    );
-
-  /*
-   * Approximate cinematic pacing.
-   */
-  const actionSeconds =
-    actionWords / 3.0;
-
-  const dialogueSeconds =
-    dialogueWords / 2.2;
-
-  /*
-   * Small cinematic breathing room.
-   */
-  const baseline = 6;
-
-  return clamp(
-    baseline +
-      actionSeconds +
-      dialogueSeconds,
-    8,
-    60
-  );
-}
-
-/* =========================================================
-   TARGET DURATION
-========================================================= */
-
-function getTargetDuration(
-  body
-) {
-  const value =
-    safeNumber(
-      body?.targetLength ??
-        body?.targetDuration ??
-        240,
-      240
-    );
-
-  return clamp(
-    round(value),
-    20,
-    3600
-  );
-}
-
-/* =========================================================
-   EXACT SCENE DURATION ALLOCATION
-========================================================= */
-
-function allocateSceneDurations(
-  scenes,
-  targetSeconds
-) {
-  if (!scenes.length) {
-    return [];
-  }
-
-  const minimum =
-    8;
-
-  const minimumTotal =
-    minimum *
-    scenes.length;
-
-  /*
-   * For very short targets with many scenes, the mathematically
-   * possible minimum is larger than the requested target.
-   *
-   * For the normal 4-minute test this will never be a problem.
-   */
-  const effectiveTarget =
-    Math.max(
-      round(targetSeconds),
-      minimumTotal
-    );
-
-  const raw =
-    scenes.map(
-      estimateSceneSeconds
-    );
-
-  const rawTotal =
-    raw.reduce(
-      (sum, value) =>
-        sum + value,
-      0
-    );
-
-  if (
-    rawTotal <= 0
-  ) {
-    const result =
-      Array(
-        scenes.length
-      ).fill(
-        minimum
-      );
-
-    let remaining =
-      effectiveTarget -
-      result.reduce(
-        (a, b) => a + b,
-        0
-      );
-
-    let index = 0;
-
-    while (
-      remaining > 0
-    ) {
-      result[
-        index %
-          result.length
-      ] += 1;
-
-      remaining--;
-      index++;
-    }
-
-    return result;
-  }
-
-  /*
-   * Initial proportional allocation.
-   */
-  const values =
-    raw.map(
-      value =>
-        Math.max(
-          minimum,
-          (value /
-            rawTotal) *
-            effectiveTarget
-        )
-    );
-
-  /*
-   * Convert to integers.
-   */
-  const result =
-    values.map(
-      value =>
-        Math.max(
-          minimum,
-          Math.floor(value)
-        )
-    );
-
-  let total =
-    result.reduce(
-      (sum, value) =>
-        sum + value,
-      0
-    );
-
-  /*
-   * Add remaining seconds according to largest fractions.
-   */
-  if (
-    total <
-    effectiveTarget
-  ) {
-    const order =
-      values
-        .map(
-          (value, index) => ({
-            index,
-            fraction:
-              value -
-              Math.floor(value)
-          })
-        )
-        .sort(
-          (a, b) =>
-            b.fraction -
-            a.fraction
+      if (important) {
+        global.constraints.push(
+          cleanText(important[2])
         );
 
-    let cursor = 0;
+        continue;
+      }
 
-    while (
-      total <
-      effectiveTarget
-    ) {
-      const item =
-        order[
-          cursor %
-            order.length
-        ];
+      const director = line.match(
+        /^DIRECTOR(?:\s+INSTRUCTION)?\s*:\s*(.*)$/i
+      );
 
-      result[
-        item.index
-      ] += 1;
+      if (director) {
+        global.director.push(
+          cleanText(director[1])
+        );
 
-      total++;
-      cursor++;
+        continue;
+      }
+
+      const charHead = line.match(
+        /^CHARACTER\s*:\s*(.+)$/i
+      );
+
+      if (charHead) {
+        finishCharacter();
+
+        character = {
+          name: charHead[1],
+          role: '',
+          look: '',
+          personality: '',
+          voice: '',
+          wardrobe: ''
+        };
+
+        characterSection = '';
+
+        continue;
+      }
+
+      if (character) {
+        const kv = line.match(
+          /^(ROLE|LOOK|PERSONALITY|VOICE|WARDROBE)\s*:\s*(.*)$/i
+        );
+
+        if (kv) {
+          characterSection =
+            kv[1].toLowerCase();
+
+          character[characterSection] =
+            cleanText(
+              `${character[characterSection]} ${kv[2]}`
+            );
+
+          continue;
+        }
+
+        if (characterSection) {
+          character[characterSection] =
+            cleanText(
+              `${character[characterSection]} ${line}`
+            );
+
+          continue;
+        }
+      }
+
+      continue;
+    }
+
+    const header = parseHeader(line);
+
+    if (header) {
+      section = header.name;
+      pendingSpeaker = null;
+
+      if (header.value) {
+        const result = addSceneLine(
+          scene,
+          section,
+          header.value,
+          pendingSpeaker
+        );
+
+        pendingSpeaker = result.pendingSpeaker;
+      }
+
+      continue;
+    }
+
+    const result = addSceneLine(
+      scene,
+      section,
+      line,
+      pendingSpeaker
+    );
+
+    pendingSpeaker = result.pendingSpeaker;
+  }
+
+  finishCharacter();
+  finishScene();
+
+  const charMap = new Map();
+
+  for (const c of characters) {
+    const old = charMap.get(c.name);
+
+    if (!old) {
+      charMap.set(c.name, c);
+    } else {
+      for (const key of [
+        'role',
+        'look',
+        'personality',
+        'voice',
+        'wardrobe'
+      ]) {
+        if (!old[key] && c[key]) {
+          old[key] = c[key];
+        }
+      }
     }
   }
 
-  /*
-   * Remove seconds if necessary, never going below minimum.
-   */
-  while (
-    total >
-    effectiveTarget
-  ) {
-    let changed =
-      false;
+  return {
+    scenes,
+    characters: [...charMap.values()],
+    global
+  };
+}
 
-    for (
-      let i =
-        result.length - 1;
-      i >= 0;
-      i--
-    ) {
-      if (
-        result[i] >
-        minimum
-      ) {
-        result[i]--;
-        total--;
-        changed = true;
+function allocateExact(total, rawValues, min = 1) {
+  const target = Math.max(
+    rawValues.length,
+    Math.round(Number(total) || 0)
+  );
 
+  const values = rawValues.map(v =>
+    Math.max(0.01, Number(v) || 0.01)
+  );
+
+  const sum = values.reduce(
+    (a, b) => a + b,
+    0
+  );
+
+  const exact = values.map(
+    v => (v / sum) * target
+  );
+
+  const out = exact.map(v =>
+    Math.max(min, Math.floor(v))
+  );
+
+  let current = out.reduce(
+    (a, b) => a + b,
+    0
+  );
+
+  const order = exact
+    .map((v, i) => ({
+      i,
+      frac: v - Math.floor(v)
+    }))
+    .sort((a, b) => b.frac - a.frac);
+
+  let p = 0;
+
+  while (current < target && order.length) {
+    out[order[p % order.length].i]++;
+    current++;
+    p++;
+  }
+
+  while (current > target) {
+    let idx = -1;
+
+    for (let i = 0; i < out.length; i++) {
+      if (out[i] > min) {
         if (
-          total ===
-          effectiveTarget
+          idx === -1 ||
+          out[i] > out[idx]
         ) {
-          break;
+          idx = i;
         }
       }
     }
 
-    if (!changed) {
-      break;
-    }
+    if (idx === -1) break;
+
+    out[idx]--;
+    current--;
   }
 
-  return result;
+  return out;
 }
 
-/* =========================================================
-   ACTION SENTENCE SPLITTING
-========================================================= */
+function estimateSceneSeconds(scene) {
+  const actionWords = wordCount(
+    scene.action.join(' ')
+  );
 
-function splitActionSentences(
-  action
-) {
-  const text =
-    cleanText(action);
+  const dialogueWords = wordCount(
+    scene.dialogue
+      .map(d => d.text)
+      .join(' ')
+  );
 
-  if (!text) {
-    return [];
-  }
+  const base =
+    5 +
+    actionWords * 0.18 +
+    dialogueWords * 0.42;
 
-  const matches =
-    text.match(
-      /[^.!?]+(?:[.!?]+|$)/g
-    );
+  return Math.max(
+    8,
+    Math.min(55, base)
+  );
+}
 
-  if (!matches) {
-    return [text];
-  }
-
-  return matches
+function splitSentences(value) {
+  return cleanText(value)
+    .split(/(?<=[.!?…])\s+/)
     .map(cleanText)
     .filter(Boolean);
 }
 
-/* =========================================================
-   SHOT DURATION ALLOCATION
-========================================================= */
+function buildShots(scene) {
+  const shots = [];
+  let n = 1;
 
-function allocateShotDurations(
-  shotCount,
-  totalSeconds
-) {
-  if (
-    shotCount <= 0
-  ) {
-    return [];
+  if (scene.location) {
+    shots.push({
+      id: `${scene.number}.${n++}`,
+      type: 'ESTABLISHING',
+      camera: 'Wide establishing shot',
+      visual: scene.location,
+      visualPrompt: scene.location
+    });
   }
 
-  totalSeconds =
-    Math.max(
-      1,
-      round(totalSeconds)
-    );
-
-  /*
-   * Normal case.
-   */
-  const base =
-    Math.floor(
-      totalSeconds /
-        shotCount
-    );
-
-  const remainder =
-    totalSeconds %
-    shotCount;
-
-  const result =
-    Array(
-      shotCount
-    ).fill(
-      Math.max(
-        1,
-        base
-      )
-    );
-
-  /*
-   * Distribute remainder exactly.
-   */
-  for (
-    let i = 0;
-    i < remainder;
-    i++
-  ) {
-    result[i]++;
-  }
-
-  return result;
-}
-
-/* =========================================================
-   SHOT TYPE
-========================================================= */
-
-function chooseShotType(
-  index,
-  total,
-  hasDialogue,
-  speaker
-) {
-  if (
-    hasDialogue &&
-    speaker
-  ) {
-    return "MEDIUM / DIALOGUE";
-  }
-
-  if (
-    index === 0
-  ) {
-    return "ESTABLISHING";
-  }
-
-  if (
-    index ===
-    total - 1
-  ) {
-    return "CLOSE / REACTION";
-  }
-
-  const cycle = [
-    "MEDIUM",
-    "TRACKING",
-    "OVER-THE-SHOULDER",
-    "CLOSE / REACTION",
-    "WIDE"
-  ];
-
-  return cycle[
-    index %
-      cycle.length
-  ];
-}
-
-/* =========================================================
-   CINEMATIC SHOT PLANNER
-   ---------------------------------------------------------
-   CRITICAL FIX:
-   Dialogue shots are NEVER merged away.
-========================================================= */
-
-function makeShots(
-  scene
-) {
-  const actionSentences =
-    splitActionSentences(
-      scene.action
-    );
-
-  const dialogue =
-    scene.dialogue || [];
-
-  /*
-   * Build dialogue units first.
-   * Each dialogue line is sacred and must remain its own
-   * shot.
-   */
-  const dialogueUnits =
-    dialogue.map(
-      line => ({
-        kind:
-          "dialogue",
-
-        speaker:
-          line.speaker,
-
-        text:
-          line.text,
-
-        dialogueId:
-          line.id
-      })
-    );
-
-  /*
-   * Build action units.
-   */
-  const actionUnits =
-    actionSentences.map(
-      sentence => ({
-        kind:
-          "action",
-
-        text:
-          sentence
-      })
-    );
-
-  /*
-   * Add location as an establishing visual only when there
-   * is enough action to support it.
-   */
-  const locationUnit =
-    scene.location
-      ? {
-          kind:
-            "action",
-          text:
-            `Establish the environment: ${scene.location}.`
-        }
-      : null;
-
-  /*
-   * Combine in story order.
-   */
-  let units = [];
-
-  if (locationUnit) {
-    units.push(
-      locationUnit
-    );
-  }
-
-  units =
-    units.concat(
-      actionUnits
-    );
-
-  /*
-   * Dialogue is appended as dedicated units.
-   *
-   * Most importantly, these units will never be merged.
-   */
-  units =
-    units.concat(
-      dialogueUnits
-    );
-
-  /*
-   * If scene contains nothing usable, create one fallback
-   * shot.
-   */
-  if (!units.length) {
-    units = [
-      {
-        kind:
-          "action",
-
-        text:
-          scene.title ||
-          "Cinematic scene."
-      }
-    ];
-  }
-
-  /*
-   * We can reduce excessive ACTION shots, but NEVER reduce
-   * dialogue shots.
-   */
-  const MAX_ACTION_SHOTS = 8;
-
-  const actions =
-    units.filter(
-      unit =>
-        unit.kind ===
-        "action"
-    );
-
-  const dialogues =
-    units.filter(
-      unit =>
-        unit.kind ===
-        "dialogue"
-    );
-
-  /*
-   * Reduce action units if there are too many.
-   */
-  let reducedActions =
-    actions;
-
-  if (
-    actions.length >
-    MAX_ACTION_SHOTS
-  ) {
-    reducedActions = [];
-
-    /*
-     * Keep the first action as establishing information.
-     */
-    reducedActions.push(
-      actions[0]
-    );
-
-    const remaining =
-      actions.slice(1);
-
-    const buckets =
-      Math.min(
-        MAX_ACTION_SHOTS - 1,
-        remaining.length
-      );
-
-    for (
-      let i = 0;
-      i < buckets;
-      i++
-    ) {
-      const start =
-        Math.floor(
-          (i *
-            remaining.length) /
-            buckets
-        );
-
-      const end =
-        Math.floor(
-          ((i + 1) *
-            remaining.length) /
-            buckets
-        );
-
-      const chunk =
-        remaining.slice(
-          start,
-          end
-        );
-
-      if (
-        chunk.length
-      ) {
-        reducedActions.push({
-          kind:
-            "action",
-
-          text:
-            chunk
-              .map(
-                item =>
-                  item.text
-              )
-              .join(" ")
-        });
-      }
-    }
-  }
-
-  /*
-   * Preserve dialogue in its original order relative to the
-   * scene as much as possible.
-   *
-   * Since dialogue must remain dedicated, we simply place
-   * action shots before dialogue shots when the parser cannot
-   * recover exact interleaving.
-   */
-  const selected =
-    reducedActions.concat(
-      dialogues
-    );
-
-  const durations =
-    allocateShotDurations(
-      selected.length,
-      scene.duration
-    );
-
-  return selected.map(
-    (unit, index) => {
-      const dialogue =
-        unit.kind ===
-        "dialogue";
-
-      const type =
-        chooseShotType(
-          index,
-          selected.length,
-          dialogue,
-          unit.speaker
-        );
-
-      return {
-        id:
-          makeId(),
-
-        scene:
-          scene.number,
-
-        shot:
-          index + 1,
-
-        type,
-
-        duration:
-          durations[index],
-
-        speaker:
-          dialogue
-            ? unit.speaker
-            : null,
-
-        dialogueId:
-          dialogue
-            ? unit.dialogueId
-            : null,
-
-        action:
-          dialogue
-            ? `Character performs the scripted dialogue naturally while maintaining exact identity, emotion and continuity.`
-            : unit.text,
-
-        dialogue:
-          dialogue
-            ? unit.text
-            : null,
-
-        visualPrompt:
-          buildVisualPrompt(
-            scene,
-            unit,
-            type
-          )
-      };
-    }
-  );
-}
-
-/* =========================================================
-   VISUAL PROMPT
-========================================================= */
-
-function buildVisualPrompt(
-  scene,
-  unit,
-  shotType
-) {
-  const location =
-    scene.location ||
-    "the established scene location";
-
-  const continuity =
-    [
-      "Maintain exact character identity.",
-      "Maintain exact face, age, hair and wardrobe.",
-      "Maintain prop continuity.",
-      "Maintain geography and lighting continuity.",
-      "Maintain chronological story state.",
-      "Do not invent story events."
-    ].join(" ");
-
-  if (
-    unit.kind ===
-    "dialogue"
-  ) {
-    return [
-      `Live-action cinematic ${shotType.toLowerCase()} shot.`,
-      `Location: ${location}.`,
-      `Speaker: ${unit.speaker}.`,
-      `Performance: natural human acting with accurate lip movement and facial emotion.`,
-      `Exact scripted dialogue: "${unit.text}"`,
-      continuity
-    ].join(" ");
-  }
-
-  return [
-    `Live-action cinematic ${shotType.toLowerCase()} shot.`,
-    `Location: ${location}.`,
-    `Action: ${unit.text}`,
-    continuity
-  ].join(" ");
-}
-
-/* =========================================================
-   SUBTITLE GENERATION
-========================================================= */
-
-function buildSubtitles(
-  scenes
-) {
-  const subtitles = [];
-
-  let cursor = 0;
-
-  for (const scene of scenes) {
-    const dialogue =
-      scene.dialogue || [];
-
-    if (
-      !dialogue.length
-    ) {
-      cursor +=
-        scene.duration;
-
-      continue;
-    }
-
-    const weights =
-      dialogue.map(
-        line =>
-          Math.max(
-            1,
-            countWords(
-              line.text
-            )
-          )
-      );
-
-    const totalWeight =
-      weights.reduce(
-        (sum, value) =>
-          sum + value,
-        0
-      );
-
-    let local =
-      cursor;
-
-    for (
-      let i = 0;
-      i < dialogue.length;
-      i++
-    ) {
-      const line =
-        dialogue[i];
-
-      const share =
-        scene.duration *
-        (
-          weights[i] /
-          totalWeight
-        );
-
-      const start =
-        Math.round(
-          local * 1000
-        ) / 1000;
-
-      const end =
-        Math.round(
-          (local + share) *
-            1000
-        ) / 1000;
-
-      subtitles.push({
-        id:
-          line.id,
-
-        scene:
-          scene.number,
-
-        speaker:
-          line.speaker,
-
-        text:
-          line.text,
-
-        start,
-
-        end
+  for (const action of scene.action) {
+    for (const sentence of splitSentences(action)) {
+      shots.push({
+        id: `${scene.number}.${n++}`,
+        type: 'ACTION',
+        camera:
+          shots.length % 2
+            ? 'Medium cinematic shot'
+            : 'Tracking cinematic shot',
+        visual: sentence,
+        visualPrompt: sentence
       });
 
-      local += share;
+      /*
+        Action shots are capped so the plan stays practical.
+        Dialogue shots below are NEVER removed.
+      */
+      if (
+        shots.filter(s => s.type !== 'DIALOGUE').length >= 8
+      ) {
+        break;
+      }
     }
 
-    cursor +=
-      scene.duration;
+    if (
+      shots.filter(s => s.type !== 'DIALOGUE').length >= 8
+    ) {
+      break;
+    }
   }
 
-  return subtitles;
+  /*
+    CRITICAL DIALOGUE LOCK:
+    Every screenplay dialogue line receives exactly one
+    dedicated dialogue shot.
+  */
+  for (const d of scene.dialogue) {
+    const visual =
+      `Character ${d.speaker} performs the exact spoken line.`;
+
+    shots.push({
+      id: `${scene.number}.${n++}`,
+      type: 'DIALOGUE',
+      camera:
+        'Performance close-up / over-the-shoulder',
+      visual,
+      visualPrompt: visual,
+      dialogue: [
+        {
+          speaker: d.speaker,
+          text: d.text
+        }
+      ]
+    });
+  }
+
+  for (const emotion of scene.emotion.slice(0, 2)) {
+    shots.push({
+      id: `${scene.number}.${n++}`,
+      type: 'EMOTION',
+      camera: 'Emotional close-up',
+      visual: emotion,
+      visualPrompt: emotion
+    });
+  }
+
+  for (const sound of scene.sound.slice(0, 1)) {
+    shots.push({
+      id: `${scene.number}.${n++}`,
+      type: 'SOUND',
+      camera: 'Atmospheric coverage',
+      visual: sound,
+      visualPrompt: sound
+    });
+  }
+
+  return shots;
 }
 
-/* =========================================================
-   BALANCED PART SPLITTING
-========================================================= */
+function mergeCharacters(parsed, supplied) {
+  const map = new Map();
 
-function splitScenesIntoParts(
-  scenes,
-  partCount
-) {
-  if (
-    !scenes.length
-  ) {
-    return [];
+  for (const c of parsed || []) {
+    if (!c || !text(c.name)) continue;
+
+    map.set(
+      normalizeSpeaker(c.name),
+      {
+        name: normalizeSpeaker(c.name),
+        role: text(c.role),
+        look: text(c.look),
+        personality: text(c.personality),
+        voice: text(c.voice),
+        wardrobe: text(c.wardrobe)
+      }
+    );
   }
 
-  const count =
-    clamp(
-      round(
-        partCount || 1
-      ),
-      1,
-      scenes.length
+  if (Array.isArray(supplied)) {
+    for (const raw of supplied) {
+      if (!raw || !text(raw.name)) continue;
+
+      const name = normalizeSpeaker(raw.name);
+
+      const old =
+        map.get(name) || {
+          name,
+          role: '',
+          look: '',
+          personality: '',
+          voice: '',
+          wardrobe: ''
+        };
+
+      for (const key of [
+        'role',
+        'look',
+        'personality',
+        'voice',
+        'wardrobe'
+      ]) {
+        if (text(raw[key])) {
+          old[key] = text(raw[key]);
+        }
+      }
+
+      map.set(name, old);
+    }
+  }
+
+  return [...map.values()];
+}
+
+function buildPlan(input) {
+  const project =
+    input.project &&
+    typeof input.project === 'object'
+      ? input.project
+      : {};
+
+  const screenplay = text(
+    input.screenplay ||
+    project.screenplay ||
+    project.script
+  );
+
+  if (!screenplay) {
+    throw new Error(
+      'Paste your screenplay first.'
+    );
+  }
+
+  if (
+    Buffer.byteLength(
+      screenplay,
+      'utf8'
+    ) > MAX_SCREENPLAY_BYTES
+  ) {
+    throw new Error(
+      'Screenplay is too large. Maximum is 2 MB.'
+    );
+  }
+
+  const parsed =
+    parseScreenplay(screenplay);
+
+  if (!parsed.scenes.length) {
+    throw new Error(
+      'No SCENE blocks found. Use headings such as SCENE 1 — The Shore.'
+    );
+  }
+
+  const target = Math.max(
+    20,
+    Math.min(
+      3600,
+      Math.round(
+        Number(
+          input.targetLength ||
+          project.targetLength ||
+          project.targetMinutes * 60 ||
+          240
+        )
+      )
+    )
+  );
+
+  const requestedParts = Math.max(
+    1,
+    Math.min(
+      6,
+      Math.round(
+        Number(
+          input.episodes ||
+          input.parts ||
+          project.episodes ||
+          project.parts ||
+          6
+        )
+      )
+    )
+  );
+
+  const rawDurations =
+    parsed.scenes.map(
+      estimateSceneSeconds
     );
 
-  if (
-    count === 1
-  ) {
-    return [
-      scenes.slice()
-    ];
-  }
+  const durations =
+    allocateExact(
+      target,
+      rawDurations,
+      1
+    );
 
-  const n =
-    scenes.length;
+  const plannedScenes =
+    parsed.scenes.map((scene, i) => ({
+      ...scene,
+      duration: durations[i],
+      shots: buildShots(scene)
+    }));
 
-  const prefix =
-    Array(n + 1).fill(0);
+  /*
+    Never invent empty scenes.
+    Parts contain complete scenes only.
+  */
+  const parts = [];
+
+  const targetPart =
+    target / requestedParts;
+
+  let current = [];
+  let currentDuration = 0;
 
   for (
     let i = 0;
-    i < n;
+    i < plannedScenes.length;
     i++
   ) {
-    prefix[i + 1] =
-      prefix[i] +
-      scenes[i].duration;
-  }
+    const scene =
+      plannedScenes[i];
 
-  const target =
-    prefix[n] / count;
-
-  const dp =
-    Array.from(
-      {
-        length:
-          count + 1
-      },
-      () =>
-        Array(
-          n + 1
-        ).fill(
-          Infinity
-        )
-    );
-
-  const cuts =
-    Array.from(
-      {
-        length:
-          count + 1
-      },
-      () =>
-        Array(
-          n + 1
-        ).fill(-1)
-    );
-
-  dp[0][0] = 0;
-
-  for (
-    let parts = 1;
-    parts <= count;
-    parts++
-  ) {
-    for (
-      let end = parts;
-      end <= n;
-      end++
-    ) {
-      for (
-        let start =
-          parts - 1;
-        start < end;
-        start++
-      ) {
-        if (
-          !Number.isFinite(
-            dp[
-              parts - 1
-            ][start]
-          )
-        ) {
-          continue;
-        }
-
-        const duration =
-          prefix[end] -
-          prefix[start];
-
-        const cost =
-          Math.pow(
-            duration -
-              target,
-            2
-          );
-
-        const candidate =
-          dp[
-            parts - 1
-          ][start] +
-          cost;
-
-        if (
-          candidate <
-          dp[parts][end]
-        ) {
-          dp[parts][end] =
-            candidate;
-
-          cuts[parts][end] =
-            start;
-        }
-      }
-    }
-  }
-
-  const groups = [];
-
-  let end = n;
-
-  for (
-    let part = count;
-    part >= 1;
-    part--
-  ) {
-    const start =
-      cuts[part][end];
-
-    if (
-      start < 0
-    ) {
-      return fallbackSplitScenes(
-        scenes,
-        count
-      );
-    }
-
-    groups.unshift(
-      scenes.slice(
-        start,
-        end
-      )
-    );
-
-    end =
-      start;
-  }
-
-  return groups;
-}
-
-/* =========================================================
-   FALLBACK PART SPLIT
-========================================================= */
-
-function fallbackSplitScenes(
-  scenes,
-  partCount
-) {
-  const groups = [];
-
-  let start = 0;
-
-  for (
-    let part = 0;
-    part < partCount;
-    part++
-  ) {
     const remainingScenes =
-      scenes.length -
-      start;
+      plannedScenes.length - i;
 
     const remainingParts =
-      partCount -
-      part;
+      requestedParts - parts.length;
 
-    const take =
-      Math.ceil(
-        remainingScenes /
-          remainingParts
-      );
+    const shouldSplit =
+      current.length > 0 &&
+      currentDuration >=
+        targetPart * 0.82 &&
+      remainingScenes >=
+        remainingParts;
 
-    groups.push(
-      scenes.slice(
-        start,
-        start + take
-      )
-    );
+    if (shouldSplit) {
+      parts.push({
+        episode: parts.length + 1,
+        title: `Part ${parts.length + 1}`,
+        duration: currentDuration,
+        scenes: current
+      });
 
-    start += take;
-  }
-
-  return groups;
-}
-
-/* =========================================================
-   PART BUILDER
-========================================================= */
-
-function makeParts(
-  scenes,
-  requestedParts
-) {
-  const groups =
-    splitScenesIntoParts(
-      scenes,
-      requestedParts
-    );
-
-  return groups.map(
-    (group, index) => {
-      const duration =
-        group.reduce(
-          (sum, scene) =>
-            sum +
-            scene.duration,
-          0
-        );
-
-      const shots =
-        group.flatMap(
-          scene =>
-            scene.shots
-        );
-
-      return {
-        part:
-          index + 1,
-
-        duration,
-
-        scenes:
-          group.map(
-            scene =>
-              scene.number
-          ),
-
-        shots
-      };
+      current = [];
+      currentDuration = 0;
     }
-  );
-}
 
-/* =========================================================
-   PLAN VALIDATION
-========================================================= */
-
-function validatePlan(
-  plan
-) {
-  const errors = [];
-  const warnings = [];
-
-  if (
-    !Array.isArray(
-      plan.scenes
-    ) ||
-    !plan.scenes.length
-  ) {
-    errors.push(
-      "No screenplay scenes were detected."
-    );
+    current.push(scene);
+    currentDuration += scene.duration;
   }
 
-  if (
-    plan.targetSeconds <= 0
-  ) {
-    errors.push(
-      "Target duration must be greater than zero."
-    );
-  }
-
-  if (
-    !ALLOWED_FORMATS.has(
-      plan.format
-    )
-  ) {
-    errors.push(
-      `Unsupported format: ${plan.format}`
-    );
-  }
-
-  /*
-   * Critical dialogue validation.
-   */
-  if (
-    plan.dialogueLines === 0 &&
-    plan.screenplayContainsSpeakerLabels
-  ) {
-    errors.push(
-      "Speaker labels were detected but no dialogue lines were extracted."
-    );
-  }
-
-  /*
-   * Every extracted dialogue line must produce a subtitle
-   * when subtitles are enabled.
-   */
-  if (
-    plan.subtitlesEnabled &&
-    plan.dialogueLines > 0 &&
-    plan.subtitles.length !==
-      plan.dialogueLines
-  ) {
-    errors.push(
-      `Subtitle count mismatch: ${plan.dialogueLines} dialogue lines but ${plan.subtitles.length} subtitles were generated.`
-    );
-  }
-
-  if (
-    plan.gpuShots === 0 &&
-    plan.scenes.length > 0
-  ) {
-    errors.push(
-      "Scenes exist but no GPU shots were created."
-    );
-  }
-
-  /*
-   * Every dialogue line must have a dedicated shot.
-   */
-  if (
-    plan.dialogueLines > 0 &&
-    plan.dialogueShots <
-      plan.dialogueLines
-  ) {
-    errors.push(
-      `Dialogue shot mismatch: ${plan.dialogueLines} dialogue lines but only ${plan.dialogueShots} dedicated dialogue shots were created.`
-    );
-  }
-
-  /*
-   * Exact duration should normally be guaranteed.
-   */
-  if (
-    plan.plannedSeconds !==
-    plan.targetSeconds
-  ) {
-    errors.push(
-      `Duration mismatch: planned ${plan.plannedSeconds}s but target is ${plan.targetSeconds}s.`
-    );
-  }
-
-  /*
-   * Parts must contain all scenes.
-   */
-  const scenesInParts =
-    plan.parts.reduce(
-      (total, part) =>
-        total +
-        part.scenes.length,
-      0
-    );
-
-  if (
-    scenesInParts !==
-    plan.scenes.length
-  ) {
-    errors.push(
-      "Part planning does not contain every screenplay scene."
-    );
-  }
-
-  /*
-   * Warnings only.
-   */
-  if (
-    plan.scenes.some(
-      scene =>
-        !scene.location
-    )
-  ) {
-    warnings.push(
-      "One or more scenes have no explicit LOCATION."
-    );
-  }
-
-  if (
-    plan.scenes.some(
-      scene =>
-        !scene.action &&
-        scene.dialogue.length ===
-          0
-    )
-  ) {
-    warnings.push(
-      "One or more scenes contain no extracted action or dialogue."
-    );
-  }
-
-  return {
-    errors,
-    warnings
-  };
-}
-
-/* =========================================================
-   DIRECTOR PLAN BUILDER
-========================================================= */
-
-function buildDirectorPlan({
-  screenplay,
-  format = "9:16",
-  targetSeconds = 240,
-  parts = 6,
-  subtitles = true,
-  narrator = false
-}) {
-  const normalized =
-    normalizeScreenplay(
-      screenplay
-    );
-
-  const scenes =
-    parseScenes(
-      normalized
-    );
-
-  const characters =
-    extractCharacters(
-      normalized
-    );
-
-  const hasSpeakerLabels =
-    screenplayHasSpeakerLabels(
-      normalized
-    );
-
-  /*
-   * Exact duration allocation.
-   */
-  const durations =
-    allocateSceneDurations(
-      scenes,
-      targetSeconds
-    );
-
-  const finalScenes =
-    scenes.map(
-      (scene, index) => {
-        const duration =
-          durations[index];
-
-        const prepared = {
-          ...scene,
-
-          duration,
-
-          estimatedRawDuration:
-            round(
-              estimateSceneSeconds(
-                scene
-              )
-            )
-        };
-
-        const shots =
-          makeShots(
-            prepared
-          );
-
-        return {
-          ...prepared,
-          shots
-        };
-      }
-    );
-
-  /*
-   * Recalculate shot durations after shot generation.
-   */
-  for (
-    const scene of finalScenes
-  ) {
-    const shotDurations =
-      allocateShotDurations(
-        scene.shots.length,
-        scene.duration
-      );
-
-    scene.shots =
-      scene.shots.map(
-        (shot, index) => ({
-          ...shot,
-
-          duration:
-            shotDurations[index]
-        })
-      );
+  if (current.length) {
+    parts.push({
+      episode: parts.length + 1,
+      title: `Part ${parts.length + 1}`,
+      duration: currentDuration,
+      scenes: current
+    });
   }
 
   const dialogueLines =
-    countDialogueLines(
-      finalScenes
-    );
-
-  const dialogueWords =
-    countDialogueWords(
-      finalScenes
-    );
-
-  const subtitlesData =
-    subtitles
-      ? buildSubtitles(
-          finalScenes
-        )
-      : [];
-
-  const actualParts =
-    makeParts(
-      finalScenes,
-      parts
-    );
-
-  const gpuShots =
-    finalScenes.reduce(
-      (sum, scene) =>
-        sum +
-        scene.shots.length,
+    plannedScenes.reduce(
+      (n, s) =>
+        n + s.dialogue.length,
       0
     );
 
   const dialogueShots =
-    finalScenes.reduce(
-      (sum, scene) =>
-        sum +
-        scene.shots.filter(
-          shot =>
-            Boolean(
-              shot.dialogue
-            )
+    plannedScenes.reduce(
+      (n, s) =>
+        n +
+        s.shots.filter(
+          x => x.type === 'DIALOGUE'
         ).length,
       0
     );
 
-  const plannedSeconds =
-    finalScenes.reduce(
-      (sum, scene) =>
-        sum +
-        scene.duration,
+  const gpuShots =
+    plannedScenes.reduce(
+      (n, s) =>
+        n + s.shots.length,
       0
     );
 
-  const plan = {
-    id:
-      makeId(),
+  const totalDuration =
+    plannedScenes.reduce(
+      (n, s) =>
+        n + s.duration,
+      0
+    );
 
-    directorVersion:
-      DIRECTOR_VERSION,
+  const validation = {
+    ok: true,
+    errors: [],
+    warnings: [],
 
-    createdAt:
-      new Date().toISOString(),
-
-    format:
-      ALLOWED_FORMATS.has(
-        format
-      )
-        ? format
-        : "9:16",
-
-    targetSeconds:
-      round(
-        targetSeconds
-      ),
-
-    plannedSeconds:
-      round(
-        plannedSeconds
-      ),
-
-    partsRequested:
-      clamp(
-        round(parts),
-        1,
-        Math.max(
-          1,
-          finalScenes.length
-        )
-      ),
-
-    partsActual:
-      actualParts.length,
-
-    subtitlesEnabled:
-      Boolean(subtitles),
-
-    subtitleMode:
-      subtitles
-        ? "EXACT DIALOGUE"
-        : "OFF",
-
-    narrator:
-      Boolean(narrator),
-
-    narratorMode:
-      narrator
-        ? "SCRIPTED ONLY"
-        : "OFF",
-
-    globalStyle:
-      "Live-action fantasy short film, realistic human actors, cinematic lighting, realistic ocean, natural facial expressions, dramatic acting.",
-
-    continuityLock: [
-      "Character identity remains locked.",
-      "Character appearance remains locked.",
-      "Voice identity remains locked.",
-      "Wardrobe remains locked unless explicitly changed by screenplay.",
-      "Props remain locked unless explicitly changed by screenplay.",
-      "Geography remains locked.",
-      "Chronological story events remain locked.",
-      "No invented story events.",
-      "No narrator unless explicitly scripted."
-    ],
-
-    screenplayWords:
-      countWords(
-        normalized
-      ),
+    explicitScenes:
+      plannedScenes.length,
 
     dialogueLines,
-
-    dialogueWords,
 
     dialogueShots,
 
     gpuShots,
 
-    screenplayContainsSpeakerLabels:
-      hasSpeakerLabels,
+    shots: gpuShots,
+
+    targetDuration: target,
+
+    plannedDuration:
+      totalDuration,
+
+    durationDifference:
+      totalDuration - target,
+
+    requestedParts,
+
+    actualParts:
+      parts.length,
+
+    actualEpisodes:
+      parts.length
+  };
+
+  if (
+    dialogueLines !== dialogueShots
+  ) {
+    validation.ok = false;
+
+    validation.errors.push(
+      `Dialogue integrity failure: ${dialogueLines} dialogue lines but ${dialogueShots} dialogue shots.`
+    );
+  }
+
+  if (
+    totalDuration !== target
+  ) {
+    validation.ok = false;
+
+    validation.errors.push(
+      `Duration integrity failure: planned ${totalDuration}s but target is ${target}s.`
+    );
+  }
+
+  if (!gpuShots) {
+    validation.ok = false;
+
+    validation.errors.push(
+      'No production shots were created.'
+    );
+  }
+
+  if (
+    parts.length <
+    requestedParts
+  ) {
+    validation.warnings.push(
+      `Requested ${requestedParts} parts, but the screenplay contains only ${plannedScenes.length} complete scene(s). The Director will not invent or split scenes just to create empty parts.`
+    );
+  }
+
+  const suppliedCharacters =
+    input.characters ||
+    project.characters ||
+    [];
+
+  const characters =
+    mergeCharacters(
+      parsed.characters,
+      suppliedCharacters
+    );
+
+  const visualStyle =
+    text(
+      input.visualStyle ||
+      project.visualStyle ||
+      project.style
+    ) ||
+    'Cinematic Live Action';
+
+  const format =
+    text(
+      input.format ||
+      project.format
+    );
+
+  const subtitles =
+    input.subtitle !== undefined
+      ? Boolean(input.subtitle)
+      : project.subtitles !== false;
+
+  const noNarrator =
+    input.noNarrator !== undefined
+      ? Boolean(input.noNarrator)
+      : project.noNarrator !== false;
+
+  return {
+    version:
+      `AHM-DIRECTOR-${DIRECTOR_VERSION}`,
+
+    createdAt:
+      new Date().toISOString(),
+
+    visualStyle,
+
+    format:
+      ALLOWED_FORMATS.has(format)
+        ? format
+        : '9:16',
+
+    targetLength:
+      target,
+
+    subtitles,
+
+    noNarrator,
+
+    global: {
+      ...parsed.global,
+
+      style:
+        parsed.global.style.length
+          ? parsed.global.style
+          : [visualStyle]
+    },
 
     characters,
 
     scenes:
-      finalScenes,
+      plannedScenes,
 
-    parts:
-      actualParts,
+    episodes:
+      parts,
 
-    subtitles:
-      subtitlesData
+    /*
+      Also expose parts for newer code.
+    */
+    parts,
+
+    partsActual:
+      parts.length,
+
+    dialogueLines,
+
+    dialogueShots,
+
+    gpuShots,
+
+    plannedSeconds:
+      totalDuration,
+
+    targetSeconds:
+      target,
+
+    validation
   };
-
-  const validation =
-    validatePlan(
-      plan
-    );
-
-  plan.validation =
-    validation;
-
-  plan.ready =
-    validation.errors.length ===
-    0;
-
-  return plan;
 }
 
-/* =========================================================
-   RUNPOD
-========================================================= */
+function srtTime(seconds) {
+  const ms = Math.max(
+    0,
+    Math.round(
+      seconds * 1000
+    )
+  );
 
-function runPodConfigured() {
-  return Boolean(
-    RUNPOD_API_KEY &&
-      RUNPOD_ENDPOINT_ID
+  const h =
+    Math.floor(
+      ms / 3600000
+    );
+
+  const m =
+    Math.floor(
+      (ms % 3600000) / 60000
+    );
+
+  const s =
+    Math.floor(
+      (ms % 60000) / 1000
+    );
+
+  const x =
+    ms % 1000;
+
+  return (
+    `${String(h).padStart(2, '0')}:` +
+    `${String(m).padStart(2, '0')}:` +
+    `${String(s).padStart(2, '0')},` +
+    `${String(x).padStart(3, '0')}`
   );
 }
 
-function runPodBaseUrl() {
+function makeSrt(plan) {
+  const lines = [];
+
+  let cursor = 0;
+  let index = 1;
+
+  for (
+    const scene of
+    plan.scenes || []
+  ) {
+    const duration =
+      Number(scene.duration) ||
+      0;
+
+    const dialogue =
+      scene.dialogue || [];
+
+    if (!dialogue.length) {
+      cursor += duration;
+      continue;
+    }
+
+    /*
+      Keep subtitles inside the scene.
+      Each dialogue line receives a proportional
+      subtitle interval.
+    */
+    const each =
+      duration /
+      dialogue.length;
+
+    for (const d of dialogue) {
+      const start =
+        cursor;
+
+      const end =
+        cursor + each;
+
+      lines.push(
+        `${index}\n` +
+        `${srtTime(start)} --> ${srtTime(end)}\n` +
+        `${d.speaker}: ${d.text}\n`
+      );
+
+      index++;
+      cursor = end;
+    }
+
+    /*
+      Correct floating point drift.
+    */
+    cursor =
+      Math.max(
+        cursor,
+        startOfSceneEnd(
+          scene,
+          cursor
+        )
+      );
+  }
+
+  return lines.join('\n');
+}
+
+function startOfSceneEnd(
+  scene,
+  cursor
+) {
+  return cursor;
+}
+
+function runpodConfigured() {
+  return Boolean(
+    text(process.env.RUNPOD_API_KEY) &&
+    text(process.env.RUNPOD_ENDPOINT_ID)
+  );
+}
+
+function workerMode() {
+  return String(
+    process.env.AHM_WORKER_MODE ||
+    'demo'
+  ).toLowerCase();
+}
+
+function runpodBase(endpoint) {
   return (
-    "https://api.runpod.ai/v2/" +
-    encodeURIComponent(
-      RUNPOD_ENDPOINT_ID
-    )
+    `https://api.runpod.ai/v2/` +
+    encodeURIComponent(endpoint)
   );
 }
 
@@ -2480,1044 +1263,944 @@ async function fetchJson(
       options
     );
 
-  const text =
+  const body =
     await response.text();
 
   let data;
 
   try {
     data =
-      text
-        ? JSON.parse(text)
-        : {};
+      JSON.parse(body);
   } catch {
-    data = {
-      raw: text
-    };
+    throw new Error(
+      `RunPod returned non-JSON (${response.status}).`
+    );
   }
 
-  if (
-    !response.ok
-  ) {
-    const error =
-      new Error(
-        `HTTP ${response.status}`
-      );
-
-    error.status =
-      response.status;
-
-    error.data =
-      data;
-
-    throw error;
+  if (!response.ok) {
+    throw new Error(
+      data.error ||
+      data.message ||
+      `RunPod request failed (${response.status}).`
+    );
   }
 
   return data;
 }
 
-/* =========================================================
-   RUNPOD SUBMIT
-========================================================= */
-
-async function submitRunPodJob({
+async function submitRunpod(
   plan,
-  testOnly = false
-}) {
-  if (
-    !runPodConfigured()
-  ) {
+  testOnly
+) {
+  if (!runpodConfigured()) {
     throw new Error(
-      "RunPod is not configured. Add RUNPOD_API_KEY and RUNPOD_ENDPOINT_ID on the server."
+      'RunPod is not configured. Add RUNPOD_API_KEY and RUNPOD_ENDPOINT_ID on Render before real generation.'
     );
   }
 
-  const payload = {
-    input: {
-      job_type:
-        "ahm_video_project",
-
-      director_version:
-        DIRECTOR_VERSION,
-
-      test_only:
-        Boolean(
-          testOnly
-        ),
-
-      project:
-        plan
-    }
-  };
-
   return fetchJson(
-    `${runPodBaseUrl()}/run`,
+    `${runpodBase(
+      process.env.RUNPOD_ENDPOINT_ID
+    )}/run`,
     {
-      method:
-        "POST",
+      method: 'POST',
 
       headers: {
         Authorization:
-          `Bearer ${RUNPOD_API_KEY}`,
+          `Bearer ${process.env.RUNPOD_API_KEY}`,
 
-        "Content-Type":
-          "application/json"
+        'Content-Type':
+          'application/json'
       },
 
-      body:
-        JSON.stringify(
-          payload
-        )
+      body: JSON.stringify({
+        input: {
+          job_type:
+            'ahm_video_project',
+
+          director_version:
+            DIRECTOR_VERSION,
+
+          test_only:
+            Boolean(testOnly),
+
+          project:
+            plan
+        }
+      })
     }
   );
 }
 
-/* =========================================================
-   RUNPOD STATUS
-========================================================= */
-
-async function getRunPodStatus(
-  jobId
-) {
-  if (
-    !runPodConfigured()
-  ) {
-    throw new Error(
-      "RunPod is not configured."
-    );
-  }
-
-  return fetchJson(
-    `${runPodBaseUrl()}/status/${encodeURIComponent(
-      jobId
-    )}`,
-    {
-      method:
-        "GET",
-
-      headers: {
-        Authorization:
-          `Bearer ${RUNPOD_API_KEY}`
-      }
-    }
+function saveJob(job) {
+  writeJson(
+    path.join(
+      JOBS_DIR,
+      `${safeProjectId(job.id)}.json`
+    ),
+    job
   );
 }
 
-/* =========================================================
-   RUNPOD HEALTH
-========================================================= */
-
-async function getRunPodHealth() {
-  if (
-    !runPodConfigured()
-  ) {
-    throw new Error(
-      "RunPod is not configured."
-    );
-  }
-
-  return fetchJson(
-    `${runPodBaseUrl()}/health`,
-    {
-      method:
-        "GET",
-
-      headers: {
-        Authorization:
-          `Bearer ${RUNPOD_API_KEY}`
-      }
-    }
+function loadJob(jobId) {
+  return readJson(
+    path.join(
+      JOBS_DIR,
+      `${safeProjectId(jobId)}.json`
+    ),
+    null
   );
 }
 
-/* =========================================================
-   PROJECT STORAGE
-========================================================= */
+function demoJob(plan) {
+  const jobId =
+    makeId('demo_');
 
-function projectPath(
-  id
-) {
-  return path.join(
-    PROJECTS_DIR,
-    `${sanitizeFilename(
-      id
-    )}.json`
-  );
-}
+  const job = {
+    id: jobId,
 
-function saveProject(
-  project
-) {
-  const id =
-    project.id ||
-    makeId();
+    status:
+      'COMPLETED',
 
-  const finalProject = {
-    ...project,
+    progress:
+      100,
 
-    id,
+    message:
+      'Demo validation completed. No GPU generation was charged.',
 
-    savedAt:
+    projectId:
+      makeId('project_'),
+
+    videoUrl:
+      null,
+
+    demo:
+      true,
+
+    gpuSubmitted:
+      false,
+
+    testOnly:
+      true,
+
+    planSummary: {
+      scenes:
+        plan.validation.explicitScenes,
+
+      dialogueLines:
+        plan.validation.dialogueLines,
+
+      dialogueShots:
+        plan.validation.dialogueShots,
+
+      gpuShots:
+        plan.validation.gpuShots,
+
+      targetDuration:
+        plan.validation.targetDuration,
+
+      plannedDuration:
+        plan.validation.plannedDuration,
+
+      requestedParts:
+        plan.validation.requestedParts,
+
+      actualParts:
+        plan.validation.actualParts
+    },
+
+    createdAt:
       new Date().toISOString()
   };
 
-  const serialized =
-    JSON.stringify(
-      finalProject,
-      null,
-      2
-    );
+  saveJob(job);
 
-  if (
-    fileSizeBytes(
-      serialized
-    ) >
-    MAX_PROJECT_BYTES
-  ) {
-    throw new Error(
-      "Project is too large to save."
-    );
-  }
-
-  fs.writeFileSync(
-    projectPath(id),
-    serialized,
-    "utf8"
-  );
-
-  return finalProject;
+  return job;
 }
 
-function readProject(
-  id
-) {
-  const filename =
-    projectPath(id);
+app.get(
+  '/api/health',
+  (req, res) =>
+    json(res, 200, {
+      ok: true,
 
-  if (
-    !fs.existsSync(
-      filename
-    )
-  ) {
-    return null;
-  }
+      service:
+        'AHM Studio',
 
-  return JSON.parse(
-    fs.readFileSync(
-      filename,
-      "utf8"
-    )
-  );
-}
+      directorVersion:
+        DIRECTOR_VERSION,
 
-function listProjects() {
-  return fs
-    .readdirSync(
-      PROJECTS_DIR
-    )
-    .filter(
-      name =>
-        name.endsWith(
-          ".json"
-        )
-    )
-    .map(name => {
-      try {
-        return JSON.parse(
-          fs.readFileSync(
-            path.join(
-              PROJECTS_DIR,
-              name
-            ),
-            "utf8"
-          )
-        );
-      } catch {
-        return null;
-      }
+      time:
+        new Date().toISOString(),
+
+      timestamp:
+        new Date().toISOString(),
+
+      runpodConfigured:
+        runpodConfigured(),
+
+      workerMode:
+        workerMode(),
+
+      status:
+        'online'
     })
-    .filter(Boolean)
-    .sort(
-      (a, b) =>
-        String(
-          b.savedAt ||
-            ""
-        ).localeCompare(
-          String(
-            a.savedAt ||
-              ""
+);
+
+app.get(
+  '/api/settings',
+  (req, res) =>
+    json(res, 200, {
+      provider:
+        'RunPod',
+
+      mode:
+        workerMode(),
+
+      environment:
+        process.env.NODE_ENV ||
+        'production',
+
+      endpointId:
+        text(
+          process.env.RUNPOD_ENDPOINT_ID
+        ),
+
+      hasApiKey:
+        Boolean(
+          text(
+            process.env.RUNPOD_API_KEY
           )
-        )
-    );
-}
+        ),
 
-/* =========================================================
-   HEALTH
-========================================================= */
+      hasEndpoint:
+        Boolean(
+          text(
+            process.env.RUNPOD_ENDPOINT_ID
+          )
+        ),
 
-app.get(
-  "/api/health",
-  (req, res) => {
-    return jsonOk(
-      res,
-      {
-        service:
-          "AHM Studio",
+      workerMode:
+        workerMode(),
 
-        version:
-          DIRECTOR_VERSION,
-
-        status:
-          "online",
-
-        workerMode:
-          WORKER_MODE,
-
-        runpodConfigured:
-          runPodConfigured(),
-
-        timestamp:
-          new Date().toISOString()
-      }
-    );
-  }
+      directorVersion:
+        DIRECTOR_VERSION
+    })
 );
-
-/* =========================================================
-   SETTINGS
-========================================================= */
-
-app.get(
-  "/api/settings",
-  (req, res) => {
-    return jsonOk(
-      res,
-      {
-        environment:
-          process.env.NODE_ENV ||
-          "development",
-
-        hasApiKey:
-          Boolean(
-            RUNPOD_API_KEY
-          ),
-
-        hasEndpoint:
-          Boolean(
-            RUNPOD_ENDPOINT_ID
-          ),
-
-        workerMode:
-          WORKER_MODE,
-
-        directorVersion:
-          DIRECTOR_VERSION
-      }
-    );
-  }
-);
-
-/* =========================================================
-   DIRECTOR PLAN
-========================================================= */
 
 app.post(
-  "/api/director/plan",
+  '/api/director/plan',
   (req, res) => {
     try {
-      const {
-        screenplay,
+      const plan =
+        buildPlan(
+          req.body || {}
+        );
 
-        format =
-          "9:16",
-
-        targetLength =
-          240,
-
-        parts =
-          6,
-
-        subtitles =
-          true,
-
-        narrator =
-          false
-      } =
-        req.body || {};
-
-      if (
-        typeof screenplay !==
-          "string" ||
-        !screenplay.trim()
-      ) {
-        return jsonError(
+      if (!plan.validation.ok) {
+        return json(
           res,
           400,
-          "A screenplay is required."
-        );
-      }
-
-      if (
-        fileSizeBytes(
-          screenplay
-        ) >
-        MAX_SCREENPLAY_BYTES
-      ) {
-        return jsonError(
-          res,
-          413,
-          "The screenplay is too large."
-        );
-      }
-
-      const targetSeconds =
-        getTargetDuration({
-          targetLength
-        });
-
-      const plan =
-        buildDirectorPlan({
-          screenplay,
-
-          format,
-
-          targetSeconds,
-
-          parts,
-
-          subtitles,
-
-          narrator
-        });
-
-      /*
-       * Always log the validation result on Render.
-       *
-       * This means if anything genuinely fails, the backend
-       * log will tell us exactly why.
-       */
-      console.log(
-        "DIRECTOR PLAN:",
-        {
-          scenes:
-            plan.scenes.length,
-
-          dialogueLines:
-            plan.dialogueLines,
-
-          dialogueShots:
-            plan.dialogueShots,
-
-          gpuShots:
-            plan.gpuShots,
-
-          targetSeconds:
-            plan.targetSeconds,
-
-          plannedSeconds:
-            plan.plannedSeconds,
-
-          ready:
-            plan.ready,
-
-          errors:
-            plan.validation.errors,
-
-          warnings:
-            plan.validation.warnings
-        }
-      );
-
-      if (
-        !plan.ready
-      ) {
-        return res
-          .status(422)
-          .json({
-            ok:
-              false,
+          {
+            ok: false,
 
             error:
-              "Director plan validation failed.",
+              'Director plan validation failed.',
+
+            validation:
+              plan.validation,
 
             plan
-          });
+          }
+        );
       }
 
-      return jsonOk(
+      /*
+        IMPORTANT:
+        The frontend expects response.plan.
+        Keep the API wrapper stable.
+      */
+      return json(
         res,
+        200,
         {
+          ok: true,
           plan
         }
       );
-    } catch (error) {
-      console.error(
-        "DIRECTOR PLAN ERROR:",
-        error
-      );
-
-      return jsonError(
+    } catch (e) {
+      return json(
         res,
-        500,
-        "Failed to build the Director plan.",
+        400,
         {
-          detail:
-            error.message
+          ok: false,
+
+          error:
+            e.message ||
+            'Unable to build Director plan.'
         }
       );
     }
   }
 );
 
-/* =========================================================
-   GENERATE
-========================================================= */
-
 app.post(
-  "/api/generate",
-  async (
-    req,
-    res
-  ) => {
+  '/api/projects',
+  (req, res) => {
     try {
-      const {
-        plan,
-
-        testOnly =
-          false
-      } =
+      const body =
         req.body || {};
 
+      const project = {
+        id:
+          makeId('project_'),
+
+        createdAt:
+          new Date().toISOString(),
+
+        ...body
+      };
+
       if (
-        !plan ||
-        typeof plan !==
-          "object"
+        Buffer.byteLength(
+          JSON.stringify(project),
+          'utf8'
+        ) > MAX_PROJECT_BYTES
       ) {
-        return jsonError(
-          res,
-          400,
-          "A valid Director plan is required."
+        throw new Error(
+          'Project is too large.'
         );
       }
 
+      writeJson(
+        path.join(
+          PROJECTS_DIR,
+          `${project.id}.json`
+        ),
+        project
+      );
+
+      return json(
+        res,
+        200,
+        {
+          ok: true,
+          project
+        }
+      );
+    } catch (e) {
+      return json(
+        res,
+        400,
+        {
+          ok: false,
+          error: e.message
+        }
+      );
+    }
+  }
+);
+
+app.get(
+  '/api/projects',
+  (req, res) => {
+    try {
+      const files =
+        fs.readdirSync(
+          PROJECTS_DIR
+        )
+        .filter(
+          f =>
+            f.endsWith('.json')
+        );
+
+      const list =
+        files
+          .map(
+            f =>
+              readJson(
+                path.join(
+                  PROJECTS_DIR,
+                  f
+                ),
+                null
+              )
+          )
+          .filter(Boolean)
+          .sort(
+            (a, b) =>
+              String(
+                b.createdAt
+              ).localeCompare(
+                String(
+                  a.createdAt
+                )
+              )
+          );
+
+      return json(
+        res,
+        200,
+        {
+          ok: true,
+          projects: list
+        }
+      );
+    } catch (e) {
+      return json(
+        res,
+        500,
+        {
+          ok: false,
+          error: e.message
+        }
+      );
+    }
+  }
+);
+
+app.get(
+  '/api/projects/:id',
+  (req, res) => {
+    const file =
+      path.join(
+        PROJECTS_DIR,
+        `${safeProjectId(
+          req.params.id
+        )}.json`
+      );
+
+    if (!fs.existsSync(file)) {
+      return json(
+        res,
+        404,
+        {
+          ok: false,
+          error:
+            'Project not found.'
+        }
+      );
+    }
+
+    return json(
+      res,
+      200,
+      {
+        ok: true,
+        project:
+          readJson(
+            file,
+            {}
+          )
+      }
+    );
+  }
+);
+
+app.post(
+  '/api/subtitles',
+  (req, res) => {
+    try {
+      const body =
+        req.body || {};
+
+      const plan =
+        body.plan ||
+        body;
+
+      const fileName =
+        `${safeProjectId(
+          body.projectId ||
+          'ahm'
+        )}-subtitles.srt`;
+
+      const file =
+        path.join(
+          PROJECTS_DIR,
+          fileName
+        );
+
+      fs.writeFileSync(
+        file,
+        makeSrt(plan),
+        'utf8'
+      );
+
+      return json(
+        res,
+        200,
+        {
+          ok: true,
+
+          filename:
+            fileName,
+
+          url:
+            `/files/${encodeURIComponent(
+              fileName
+            )}`
+        }
+      );
+    } catch (e) {
+      return json(
+        res,
+        400,
+        {
+          ok: false,
+          error: e.message
+        }
+      );
+    }
+  }
+);
+
+app.post(
+  '/api/generate',
+  async (req, res) => {
+    try {
+      const body =
+        req.body || {};
+
+      let plan =
+        body.plan;
+
+      if (!plan) {
+        plan =
+          buildPlan(
+            body.project ||
+            body
+          );
+      }
+
       if (
-        plan.ready ===
-        false
+        !plan ||
+        !plan.validation ||
+        !plan.validation.ok
       ) {
-        return jsonError(
+        return json(
           res,
-          422,
-          "The Director plan is not ready.",
+          400,
           {
+            ok: false,
+
+            error:
+              'Director plan validation failed.',
+
             validation:
-              plan.validation
+              plan?.validation ||
+              null
           }
         );
       }
 
       /*
-       * Demo mode NEVER submits a real GPU generation unless
-       * explicitly using testOnly.
-       */
+        DEMO MODE:
+        TEST RUNPOD is completely local.
+        It does NOT contact RunPod.
+        It does NOT spend GPU money.
+      */
       if (
-        WORKER_MODE ===
-          "demo" &&
-        !Boolean(
-          testOnly
-        )
+        workerMode() ===
+        'demo'
       ) {
-        return jsonError(
-          res,
-          409,
-          "AHM Studio is currently in DEMO worker mode. Run the test first or connect the production GPU worker before generating a real video.",
-          {
-            workerMode:
-              WORKER_MODE,
+        if (!body.testOnly) {
+          return json(
+            res,
+            409,
+            {
+              ok: false,
 
-            gpuSubmitted:
-              false
-          }
+              error:
+                'AHM is in DEMO mode. Use TEST RUNPOD for the free test, or switch AHM_WORKER_MODE to production before generating video.'
+            }
+          );
+        }
+
+        return json(
+          res,
+          200,
+          demoJob(plan)
         );
       }
 
-      if (
-        !runPodConfigured()
-      ) {
-        return jsonError(
-          res,
-          503,
-          "RunPod is not configured on the server.",
-          {
-            runpodConfigured:
-              false,
-
-            gpuSubmitted:
-              false
-          }
-        );
-      }
-
-      const job =
-        await submitRunPodJob({
+      /*
+        PRODUCTION MODE:
+        This is where the real RunPod request is made.
+      */
+      const result =
+        await submitRunpod(
           plan,
-
-          testOnly:
-            Boolean(
-              testOnly
-            )
-        });
+          Boolean(
+            body.testOnly
+          )
+        );
 
       const jobId =
-        job.id ||
-        job.job_id ||
-        job.jobId;
+        result.id ||
+        result.jobId ||
+        makeId('job_');
 
-      if (!jobId) {
-        console.error(
-          "RUNPOD RESPONSE:",
-          job
-        );
+      const job = {
+        id:
+          jobId,
 
-        return jsonError(
-          res,
-          502,
-          "RunPod did not return a job ID.",
-          {
-            runpod:
-              job
-          }
-        );
-      }
+        status:
+          result.status ||
+          'IN_QUEUE',
 
-      return jsonOk(
-        res,
-        {
-          id:
-            jobId,
+        progress:
+          1,
 
-          status:
-            job.status ||
-            "IN_QUEUE",
+        message:
+          'RunPod job submitted.',
 
-          testOnly:
-            Boolean(
-              testOnly
-            ),
+        projectId:
+          result.id ||
+          jobId,
 
-          workerMode:
-            WORKER_MODE,
+        runpod:
+          result,
 
-          gpuSubmitted:
-            true
-        }
-      );
-    } catch (
-      error
-    ) {
-      console.error(
-        "GENERATE ERROR:",
-        error
-      );
+        testOnly:
+          Boolean(
+            body.testOnly
+          ),
 
-      return jsonError(
-        res,
-        error.status ===
-          401
-          ? 502
-          : 500,
-        "RunPod job submission failed.",
-        {
-          detail:
-            error.message,
-
-          runpod:
-            error.data ||
-            null,
-
-          gpuSubmitted:
-            false
-        }
-      );
-    }
-  }
-);
-
-/* =========================================================
-   JOB STATUS
-========================================================= */
-
-app.get(
-  "/api/job-status",
-  async (
-    req,
-    res
-  ) => {
-    try {
-      const id =
-        String(
-          req.query.id ||
-            ""
-        ).trim();
-
-      if (!id) {
-        return jsonError(
-          res,
-          400,
-          "Job ID is required."
-        );
-      }
-
-      const result =
-        await getRunPodStatus(
-          id
-        );
-
-      return jsonOk(
-        res,
-        {
-          id,
-
-          job:
-            result
-        }
-      );
-    } catch (
-      error
-    ) {
-      console.error(
-        "JOB STATUS ERROR:",
-        error
-      );
-
-      return jsonError(
-        res,
-        error.status ===
-          404
-          ? 404
-          : 500,
-        "Unable to retrieve RunPod job status.",
-        {
-          detail:
-            error.message,
-
-          runpod:
-            error.data ||
-            null
-        }
-      );
-    }
-  }
-);
-
-/* =========================================================
-   WORKER HEALTH
-========================================================= */
-
-app.get(
-  "/api/worker-health",
-  async (
-    req,
-    res
-  ) => {
-    try {
-      if (
-        !runPodConfigured()
-      ) {
-        return jsonOk(
-          res,
-          {
-            configured:
-              false,
-
-            reachable:
-              false,
-
-            workerMode:
-              WORKER_MODE
-          }
-        );
-      }
-
-      const health =
-        await getRunPodHealth();
-
-      return jsonOk(
-        res,
-        {
-          configured:
-            true,
-
-          reachable:
-            true,
-
-          workerMode:
-            WORKER_MODE,
-
-          health
-        }
-      );
-    } catch (
-      error
-    ) {
-      return res
-        .status(502)
-        .json({
-          ok:
-            false,
-
-          configured:
-            runPodConfigured(),
-
-          reachable:
-            false,
-
-          workerMode:
-            WORKER_MODE,
-
-          error:
-            error.message,
-
-          runpod:
-            error.data ||
-            null
-        });
-    }
-  }
-);
-
-/* =========================================================
-   PROJECTS LIST
-========================================================= */
-
-app.get(
-  "/api/projects",
-  (
-    req,
-    res
-  ) => {
-    try {
-      return jsonOk(
-        res,
-        {
-          projects:
-            listProjects()
-        }
-      );
-    } catch (
-      error
-    ) {
-      console.error(
-        "PROJECT LIST ERROR:",
-        error
-      );
-
-      return jsonError(
-        res,
-        500,
-        "Failed to list projects."
-      );
-    }
-  }
-);
-
-/* =========================================================
-   PROJECT SAVE
-========================================================= */
-
-app.post(
-  "/api/projects",
-  (
-    req,
-    res
-  ) => {
-    try {
-      const project =
-        req.body?.project ||
-        req.body;
-
-      if (
-        !project ||
-        typeof project !==
-          "object"
-      ) {
-        return jsonError(
-          res,
-          400,
-          "A project object is required."
-        );
-      }
-
-      const saved =
-        saveProject(
-          project
-        );
-
-      return jsonOk(
-        res,
-        {
-          project:
-            saved
-        }
-      );
-    } catch (
-      error
-    ) {
-      console.error(
-        "PROJECT SAVE ERROR:",
-        error
-      );
-
-      return jsonError(
-        res,
-        500,
-        "Failed to save project.",
-        {
-          detail:
-            error.message
-        }
-      );
-    }
-  }
-);
-
-/* =========================================================
-   PROJECT GET
-========================================================= */
-
-app.get(
-  "/api/projects/:id",
-  (
-    req,
-    res
-  ) => {
-    try {
-      const id =
-        sanitizeFilename(
-          req.params.id
-        );
-
-      const project =
-        readProject(
-          id
-        );
-
-      if (!project) {
-        return jsonError(
-          res,
-          404,
-          "Project not found."
-        );
-      }
-
-      return jsonOk(
-        res,
-        {
-          project
-        }
-      );
-    } catch (
-      error
-    ) {
-      console.error(
-        "PROJECT GET ERROR:",
-        error
-      );
-
-      return jsonError(
-        res,
-        500,
-        "Failed to read project."
-      );
-    }
-  }
-);
-
-/* =========================================================
-   SUBTITLES
-========================================================= */
-
-app.post(
-  "/api/subtitles",
-  (
-    req,
-    res
-  ) => {
-    try {
-      const {
-        plan
-      } =
-        req.body || {};
-
-      if (
-        !plan ||
-        !Array.isArray(
-          plan.scenes
-        )
-      ) {
-        return jsonError(
-          res,
-          400,
-          "A valid Director plan is required."
-        );
-      }
-
-      const subtitles =
-        buildSubtitles(
-          plan.scenes
-        );
-
-      return jsonOk(
-        res,
-        {
-          subtitles
-        }
-      );
-    } catch (
-      error
-    ) {
-      console.error(
-        "SUBTITLE ERROR:",
-        error
-      );
-
-      return jsonError(
-        res,
-        500,
-        "Failed to build subtitles.",
-        {
-          detail:
-            error.message
-        }
-      );
-    }
-  }
-);
-
-/* =========================================================
-   API 404
-========================================================= */
-
-app.use(
-  "/api",
-  (
-    req,
-    res
-  ) => {
-    return res
-      .status(404)
-      .json({
-        ok:
+        demo:
           false,
 
-        error:
-          "API route not found."
-      });
+        createdAt:
+          new Date().toISOString()
+      };
+
+      saveJob(job);
+
+      return json(
+        res,
+        200,
+        job
+      );
+    } catch (e) {
+      console.error(
+        'Generation error:',
+        e
+      );
+
+      return json(
+        res,
+        400,
+        {
+          ok: false,
+          error:
+            e.message ||
+            'Generation request failed.'
+        }
+      );
+    }
   }
 );
 
-/* =========================================================
-   STATIC FRONTEND
-========================================================= */
+function mapProgress(status) {
+  const s =
+    String(
+      status || ''
+    ).toUpperCase();
+
+  if (
+    s === 'COMPLETED' ||
+    s === 'SUCCEEDED' ||
+    s === 'READY'
+  ) {
+    return 100;
+  }
+
+  if (
+    s === 'FAILED' ||
+    s === 'CANCELLED' ||
+    s === 'ERROR'
+  ) {
+    return 100;
+  }
+
+  if (
+    s === 'IN_QUEUE'
+  ) {
+    return 5;
+  }
+
+  if (
+    s === 'IN_PROGRESS'
+  ) {
+    return 50;
+  }
+
+  return 10;
+}
+
+async function statusFor(
+  jobId
+) {
+  const id =
+    text(jobId);
+
+  if (!id) {
+    throw new Error(
+      'Job ID is required.'
+    );
+  }
+
+  const local =
+    loadJob(id);
+
+  /*
+    Local demo jobs are already complete.
+    No RunPod request is made.
+  */
+  if (local?.demo) {
+    return local;
+  }
+
+  /*
+    If there is no RunPod configuration,
+    return the locally saved job if possible.
+  */
+  if (!runpodConfigured()) {
+    return (
+      local || {
+        id,
+        status:
+          'ERROR',
+
+        progress:
+          100,
+
+        error:
+          'RunPod is not configured.'
+      }
+    );
+  }
+
+  const data =
+    await fetchJson(
+      `${runpodBase(
+        process.env.RUNPOD_ENDPOINT_ID
+      )}/status/${encodeURIComponent(
+        id
+      )}`,
+      {
+        headers: {
+          Authorization:
+            `Bearer ${process.env.RUNPOD_API_KEY}`
+        }
+      }
+    );
+
+  const merged = {
+    ...(local || {}),
+
+    ...data,
+
+    id,
+
+    progress:
+      mapProgress(
+        data.status
+      )
+  };
+
+  saveJob(merged);
+
+  return merged;
+}
+
+/*
+  GET compatibility route.
+  Supports:
+  /api/job-status?id=...
+  /api/generate?jobId=...
+*/
+app.get(
+  '/api/job-status',
+  async (req, res) => {
+    if (!req.query.id) {
+      return json(
+        res,
+        400,
+        {
+          ok: false,
+          error:
+            'Job ID is required.'
+        }
+      );
+    }
+
+    try {
+      return json(
+        res,
+        200,
+        await statusFor(
+          req.query.id
+        )
+      );
+    } catch (e) {
+      return json(
+        res,
+        400,
+        {
+          ok: false,
+          error: e.message
+        }
+      );
+    }
+  }
+);
+
+app.post(
+  '/api/job-status',
+  async (req, res) => {
+    if (!req.body?.id) {
+      return json(
+        res,
+        400,
+        {
+          ok: false,
+          error:
+            'Job ID is required.'
+        }
+      );
+    }
+
+    try {
+      return json(
+        res,
+        200,
+        await statusFor(
+          req.body.id
+        )
+      );
+    } catch (e) {
+      return json(
+        res,
+        400,
+        {
+          ok: false,
+          error: e.message
+        }
+      );
+    }
+  }
+);
+
+app.get(
+  '/api/generate',
+  async (req, res) => {
+    if (!req.query.jobId) {
+      return json(
+        res,
+        400,
+        {
+          ok: false,
+          error:
+            'jobId is required.'
+        }
+      );
+    }
+
+    try {
+      return json(
+        res,
+        200,
+        await statusFor(
+          req.query.jobId
+        )
+      );
+    } catch (e) {
+      return json(
+        res,
+        400,
+        {
+          ok: false,
+          error: e.message
+        }
+      );
+    }
+  }
+);
+
+app.get(
+  '/api/worker-health',
+  async (req, res) => {
+    try {
+      if (
+        !runpodConfigured()
+      ) {
+        return json(
+          res,
+          200,
+          {
+            ok: true,
+
+            mode:
+              'demo',
+
+            message:
+              'Demo mode. No GPU worker request was made.'
+          }
+        );
+      }
+
+      const data =
+        await fetchJson(
+          `${runpodBase(
+            process.env.RUNPOD_ENDPOINT_ID
+          )}/health`,
+          {
+            headers: {
+              Authorization:
+                `Bearer ${process.env.RUNPOD_API_KEY}`
+            }
+          }
+        );
+
+      return json(
+        res,
+        200,
+        data
+      );
+    } catch (e) {
+      return json(
+        res,
+        400,
+        {
+          ok: false,
+          error: e.message
+        }
+      );
+    }
+  }
+);
+
+app.use(
+  '/files',
+  express.static(
+    PROJECTS_DIR
+  )
+);
+
+app.use(
+  '/api',
+  (req, res) =>
+    json(
+      res,
+      404,
+      {
+        ok: false,
+
+        error:
+          `API route not found: ${req.method} ${req.originalUrl}`
+      }
+    )
+);
 
 if (
   fs.existsSync(
@@ -3531,147 +2214,61 @@ if (
   );
 
   app.get(
-    "*",
-    (
-      req,
-      res,
-      next
-    ) => {
-      if (
-        req.path.startsWith(
-          "/api/"
-        )
-      ) {
-        return next();
-      }
-
-      const indexPath =
+    '*',
+    (req, res) =>
+      res.sendFile(
         path.join(
           PUBLIC_DIR,
-          "index.html"
-        );
-
-      if (
-        fs.existsSync(
-          indexPath
+          'index.html'
         )
-      ) {
-        return res.sendFile(
-          indexPath
-        );
-      }
-
-      return next();
-    }
+      )
   );
 }
 
-/* =========================================================
-   FINAL 404
-========================================================= */
-
 app.use(
-  (
-    req,
-    res
-  ) => {
-    return res
-      .status(404)
-      .json({
-        ok:
-          false,
-
-        error:
-          "Resource not found."
-      });
-  }
-);
-
-/* =========================================================
-   GLOBAL ERROR HANDLER
-========================================================= */
-
-app.use(
-  (
-    error,
-    req,
-    res,
-    next
-  ) => {
-    console.error(
-      "UNHANDLED ERROR:",
-      error
-    );
+  (err, req, res, next) => {
+    console.error(err);
 
     if (
-      res.headersSent
+      req.path.startsWith(
+        '/api'
+      )
     ) {
-      return next(
-        error
+      return json(
+        res,
+        500,
+        {
+          ok: false,
+
+          error:
+            err.message ||
+            'Server error.'
+        }
       );
     }
 
     return res
       .status(500)
-      .json({
-        ok:
-          false,
-
-        error:
-          "Internal server error.",
-
-        detail:
-          error.message
-      });
+      .send(
+        'AHM Studio server error.'
+      );
   }
 );
 
-/* =========================================================
-   SERVER
-========================================================= */
-
 app.listen(
   PORT,
-  "0.0.0.0",
+  HOST,
   () => {
     console.log(
-      "=============================================="
+      `AHM Studio ${DIRECTOR_VERSION} running on http://${HOST}:${PORT}`
     );
 
     console.log(
-      `AHM STUDIO AI FILM DIRECTOR V${DIRECTOR_VERSION}`
-    );
-
-    console.log(
-      "=============================================="
-    );
-
-    console.log(
-      `Server listening on 0.0.0.0:${PORT}`
-    );
-
-    console.log(
-      `Worker mode: ${WORKER_MODE}`
-    );
-
-    console.log(
-      `RunPod configured: ${runPodConfigured()}`
-    );
-
-    console.log(
-      `RunPod endpoint configured: ${Boolean(
-        RUNPOD_ENDPOINT_ID
-      )}`
-    );
-
-    console.log(
-      `RunPod API key configured: ${Boolean(
-        RUNPOD_API_KEY
-      )}`
-    );
-
-    console.log(
-      "=============================================="
+      `Mode: ${
+        workerMode() === 'demo'
+          ? 'DEMO (no GPU charges)'
+          : 'PRODUCTION'
+      }`
     );
   }
 );
