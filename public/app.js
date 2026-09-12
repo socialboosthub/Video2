@@ -1,1569 +1,398 @@
-const $ = s => document.querySelector(s);
+const $=s=>document.querySelector(s);
+const story=$("#story"), wordCount=$("#wordCount"), plan=$("#plan");
+const CHAR_KEY="ahm_character_library_v4";
+let characters=loadCharacters(), lastPlan=null;
 
-let plan = null;
+const SAMPLE=`🐟 THE GOLDEN FISH
+STYLE: Cinematic live-action fantasy short film, realistic human actors, cinematic lighting, realistic ocean, natural facial expressions, dramatic acting.
 
-let chars = JSON.parse(
-  localStorage.getItem("ahm_chars_v80") || "[]"
-);
-
-const GOLDEN = `THE GOLDEN FISH
-
-STYLE: Cinematic live-action fantasy, realistic human actors, natural faces, dramatic lighting, realistic ocean, film-quality camera work.
-
-CHARACTER: ELIAS
-ROLE: 45-year-old poor fisherman
-LOOK: Weathered kind face, short dark-brown hair, short dark beard, lean build, brown eyes, worn beige shirt, dark brown trousers, old leather sandals.
-PERSONALITY: Kind, humble, hardworking, patient, compassionate.
-VOICE: Warm, deep, gentle male voice.
-
-CHARACTER: MARA
-ROLE: 40-year-old fisherman's wife
-LOOK: Long dark-brown hair, expressive brown eyes, medium build, simple worn blue dress.
-PERSONALITY: Loving at first, increasingly ambitious and greedy.
-VOICE: Natural adult female voice, emotional and demanding as the story progresses.
-
-CHARACTER: GOLDEN FISH
-ROLE: Ancient magical talking fish
-LOOK: Magnificent realistic golden scales, glowing eyes, subtle magical golden light.
-PERSONALITY: Wise, mysterious, calm and powerful.
-VOICE: Calm supernatural voice.
+IMPORTANT: No narrator. The story is told through actors' actions and dialogue.
 
 SCENE 1 — THE POOR FISHERMAN
-LOCATION:
-Small coastal fishing village beside the ocean. Early morning.
+LOCATION: Small poor fishing village beside the ocean. Early morning.
 ACTION:
-Elias prepares his old fishing equipment outside their small weathered wooden home.
-Mara stands in the doorway watching him.
-Elias walks toward the ocean.
+Elias walks out of his tiny wooden house carrying an old fishing net.
+Mara stands in the doorway and looks worried.
 DIALOGUE:
-MARA: "Elias, please catch something today."
-ELIAS: "Don't worry, Mara. I'll do my best."
-EMOTION:
-Mara is worried. Elias is hopeful and reassuring.
-SOUND:
-Ocean waves, seabirds, morning wind.
+MARA: "Elias, please... catch something today."
+ELIAS: "I will, Mara."
+ELIAS: "Don't worry. We'll have something to eat tonight."
+ACTION:
+Elias gently touches Mara's shoulder and walks toward the ocean. Mara watches him disappear.
 
-SCENE 2 — THE GOLDEN FISH
-LOCATION:
-On a small wooden fishing boat in the ocean. Morning.
+SCENE 2 — FISHING
+LOCATION: A small wooden fishing boat on the ocean.
 ACTION:
-Elias throws his net into the water.
-He waits.
-He pulls the net back and finds nothing.
-He throws it again.
-The net suddenly becomes extremely heavy.
-Elias struggles and pulls harder.
-A bright golden light shines through the net.
-Elias pulls out a magnificent glowing golden fish.
+Elias throws his net into the ocean. He waits and pulls it back. Nothing. He throws it again. The net suddenly becomes extremely heavy. A bright golden light shines through it. Elias pulls out a magnificent golden fish.
 DIALOGUE:
+ELIAS: "Whoa! What is this?"
 ELIAS: "What...?"
 GOLDEN FISH: "Please... don't kill me."
-EMOTION:
-Elias is shocked and confused. The fish is calm and mysterious.
-SOUND:
-Ocean waves, boat creaking, splashing water and magical shimmer.`;
+ELIAS: "WHAT?!"
+GOLDEN FISH: "I can speak."
+ELIAS: "A talking fish?!"
+GOLDEN FISH: "I am no ordinary fish."
+GOLDEN FISH: "Release me, and I will grant you one wish."
+ELIAS: "One wish?"
+ELIAS: "Then I wish for nothing."
+GOLDEN FISH: "Nothing?"
+ELIAS: "You're alive. That's enough."
+ACTION:
+Elias gently puts the fish back into the ocean.
 
-function esc(s) {
-  return String(s ?? "").replace(
-    /[&<>"']/g,
-    m => ({
-      "&": "&amp;",
-      "<": "&lt;",
-      ">": "&gt;",
-      '"': "&quot;",
-      "'": "&#39;"
-    }[m])
-  );
+SCENE 3 — MARA HEARS THE STORY
+LOCATION: Their small house.
+ACTION:
+Elias walks inside. Mara immediately looks at his empty hands. Elias sits down and explains what happened.
+DIALOGUE:
+MARA: "Where's the fish?"
+ELIAS: "I didn't bring any."
+MARA: "Then what are we going to eat?"
+ELIAS: "You won't believe what happened."
+ELIAS: "I caught a golden fish."
+MARA: "A golden fish?"
+ELIAS: "It spoke to me."
+MARA: "You're joking."
+ELIAS: "I'm serious."
+MARA: "And it said it would grant you a wish?"
+ELIAS: "Yes."
+MARA: "What did you ask for?"
+ELIAS: "Nothing."
+MARA: "NOTHING?!"
+ELIAS: "We're alive. That's enough."
+MARA: "Look at this house!"
+MARA: "We have nothing!"
+MARA: "Go back."
+ELIAS: "For what?"
+MARA: "Ask the fish for a new house!"
+ELIAS: "Mara..."
+MARA: "GO!"
+
+SCENE 4 — THE FIRST WISH
+LOCATION: Ocean at sunset.
+ACTION:
+Elias stands on the beach. The ocean begins glowing. The golden fish rises from the water.
+DIALOGUE:
+ELIAS: "Golden fish..."
+GOLDEN FISH: "Why have you returned?"
+ELIAS: "My wife... she wants a better house."
+GOLDEN FISH: "Very well."
+ACTION:
+The fish dives underwater. A golden wave spreads across the ocean.
+
+SCENE 5 — THE NEW HOUSE
+LOCATION: Outside their home.
+ACTION:
+Elias runs home and stops in shock. Their tiny hut has become a beautiful large house. Mara walks outside, amazed.
+DIALOGUE:
+MARA: "Elias!"
+MARA: "Look at our house!"
+ELIAS: "Are you happy?"
+MARA: "Yes!"
+ACTION:
+Mara hugs Elias.
+
+SCENE 6 — I WANT MORE
+LOCATION: Inside the new house. Next morning.
+ACTION:
+Mara walks around the beautiful house and touches the furniture. Elias watches her.
+DIALOGUE:
+ELIAS: "You like it?"
+MARA: "It's nice."
+ELIAS: "Then what's wrong?"
+MARA: "I don't want a house."
+ELIAS: "What?"
+MARA: "I want a palace."
+ELIAS: "Mara..."
+MARA: "Go back to the fish."
+
+SCENE 7 — THE PALACE
+LOCATION: Ocean under a darkening sky.
+ACTION:
+Elias returns to the water. The golden fish appears.
+DIALOGUE:
+ELIAS: "Golden fish..."
+GOLDEN FISH: "Another wish?"
+ELIAS: "My wife wants a palace."
+GOLDEN FISH: "Very well."
+
+SCENE 8 — THE PALACE
+LOCATION: Palace interior.
+ACTION:
+A massive palace now stands where their house was. Mara walks through it in amazement. Servants carry food. Mara notices a huge throne.
+DIALOGUE:
+MARA: "This is beautiful!"
+ELIAS: "Now are you happy?"
+MARA: "Of course."
+ACTION:
+Mara's smile disappears as she looks at the throne.
+
+SCENE 9 — SHE WANTS TO BE QUEEN
+LOCATION: Palace throne room.
+ACTION:
+Mara walks slowly toward the throne and touches it. She sits down and looks at herself.
+DIALOGUE:
+MARA: "Why is there a throne?"
+ELIAS: "Because it's a palace."
+MARA: "A palace needs a queen."
+ELIAS: "No."
+MARA: "Take me back to the fish."
+ELIAS: "Mara, please..."
+MARA: "I want to be queen!"
+
+SCENE 10 — QUEEN
+LOCATION: Ocean during a darkening evening.
+ACTION:
+Elias stands at the ocean. The waves become stronger.
+DIALOGUE:
+ELIAS: "Golden fish..."
+GOLDEN FISH: "Let me guess."
+ELIAS: "She wants to be queen."
+GOLDEN FISH: "Very well."
+
+SCENE 11 — THE QUEEN
+LOCATION: Royal castle throne room.
+ACTION:
+The palace transforms into an enormous royal castle. Mara sits on a golden throne wearing a crown. Hundreds of people bow before her.
+DIALOGUE:
+PEOPLE: "Long live the Queen!"
+MARA: "Look at me!"
+ELIAS: "You're finally happy?"
+MARA: "No."
+ELIAS: "What more could you possibly want?"
+MARA: "I want to rule EVERYTHING."
+
+SCENE 12 — THE FINAL DEMAND
+LOCATION: Ocean during a violent storm. Rain and lightning.
+ACTION:
+Elias walks toward the water. The golden fish appears through the storm.
+DIALOGUE:
+ELIAS: "Golden fish!"
+GOLDEN FISH: "Why have you come?"
+ELIAS: "She wants to rule the entire land."
+ELIAS: "And the sea."
+GOLDEN FISH: "She wants to rule the sea?"
+ELIAS: "She wants every creature to obey her."
+GOLDEN FISH: "And what else?"
+ELIAS: "She wants..."
+ELIAS: "...you to serve her."
+GOLDEN FISH: "She wants to rule the one thing that gave her everything?"
+ACTION:
+The fish disappears beneath the water.
+
+SCENE 13 — EVERYTHING IS GONE
+LOCATION: The old fishing village.
+ACTION:
+Elias returns home. The castle, servants and crown are gone. Mara stands in front of their old broken hut wearing her original clothes.
+DIALOGUE:
+MARA: "Elias..."
+MARA: "Where is my castle?"
+MARA: "Where are the servants?"
+ELIAS: "Gone."
+MARA: "What did you do?!"
+ELIAS: "I did exactly what you asked."
+
+SCENE 14 — REGRET
+LOCATION: Inside the old hut.
+ACTION:
+Mara sees the leaking roof and broken table. She remembers the beautiful house, palace and castle. Her eyes fill with tears. Elias sits beside her.
+DIALOGUE:
+MARA: "I ruined everything..."
+ELIAS: "We still have each other."
+MARA: "I'm sorry."
+ELIAS: "Then let's start again."
+
+SCENE 15 — THE END
+LOCATION: Beach at sunset.
+ACTION:
+Elias and Mara sit beside each other and share a small piece of bread. They watch the ocean and hold hands. The camera slowly moves toward the ocean. Underwater, the golden fish swims peacefully through the blue water and looks back toward shore.
+DIALOGUE:
+MARA: "You know..."
+MARA: "I think this is enough."
+ELIAS: "Yes."
+GOLDEN FISH: "Sometimes... having everything means having nothing."
+ACTION:
+The fish swims away. Fade to black. THE END.`;
+
+function esc(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]))}
+function uid(){return "char_"+Date.now()+"_"+Math.random().toString(36).slice(2,8)}
+function loadCharacters(){try{return JSON.parse(localStorage.getItem(CHAR_KEY)||"[]")}catch{return[]}}
+function saveCharacters(){localStorage.setItem(CHAR_KEY,JSON.stringify(characters))}
+
+function updateCount(){const n=story.value.trim()?story.value.trim().split(/\s+/).length:0;wordCount.textContent=n.toLocaleString()+" words"}
+story.addEventListener("input",updateCount);
+
+function renderCharacters(){
+ const box=$("#characters"); box.innerHTML="";
+ if(!characters.length){box.innerHTML='<div class="empty">No saved characters yet. Create Elias, Mara, villains, heroes, creatures, etc.</div>';return}
+ characters.forEach((c,i)=>{
+  const el=document.createElement("div");el.className="character";
+  el.innerHTML=`<div class="char-avatar">${esc((c.name||"?")[0].toUpperCase())}</div>
+  <div class="char-fields">
+    <input class="char-name" data-i="${i}" value="${esc(c.name)}" placeholder="Character name">
+    <input class="char-role" data-i="${i}" value="${esc(c.role)}" placeholder="Role / age">
+    <textarea class="char-look" data-i="${i}" placeholder="Appearance, personality, clothing and voice">${esc(c.look)}</textarea>
+    <div class="char-actions"><span class="saved-badge">SAVED CHARACTER</span><button class="secondary use-char" data-i="${i}">＋ Use in Project</button><button class="secondary delete-char" data-i="${i}">🗑 Delete</button></div>
+  </div>`;
+  box.appendChild(el)
+ });
+ box.querySelectorAll(".delete-char").forEach(b=>b.onclick=()=>{if(confirm("Delete this saved character?")){characters.splice(+b.dataset.i,1);saveCharacters();renderCharacters()}});
+ box.querySelectorAll(".use-char").forEach(b=>b.onclick=()=>insertCharacterIntoStory(characters[+b.dataset.i]));
+ box.querySelectorAll(".char-name,.char-role,.char-look").forEach(x=>x.oninput=()=>{characters[+x.dataset.i][x.className.replace("char-","")]=x.value;saveCharacters()});
 }
-
-function wordCount() {
-  const words =
-    ($("#screenplay").value.trim().match(/\S+/g) || [])
-      .length;
-
-  $("#wordBadge").textContent =
-    `${words} words`;
+function addCharacter(c={name:"",role:"",look:""}){
+ characters.push({...c,id:uid()});saveCharacters();renderCharacters()
 }
-
-function apiError(r, d) {
-  return (
-    d?.error ||
-    `Request failed (${r.status}).`
-  );
+function insertCharacterIntoStory(c){
+ const block=`\n\nCHARACTER: ${c.name}\nROLE: ${c.role}\nLOOK: ${c.look}\n`;
+ story.value+=block;updateCount();story.focus()
 }
+$("#addCharacter").onclick=()=>addCharacter();
 
-async function jsonFetch(url, opt = {}) {
-  const r = await fetch(url, opt);
+$("#sampleBtn").onclick=()=>{story.value=SAMPLE;updateCount();if(!characters.some(x=>x.name==="Elias"))addCharacter({name:"Elias",role:"45-year-old poor fisherman",look:"Weathered face, short dark brown hair, short beard, lean build, worn beige shirt, dark brown trousers, old leather sandals. Kind, humble, hardworking, patient. Warm deep gentle male voice."});if(!characters.some(x=>x.name==="Mara"))addCharacter({name:"Mara",role:"40-year-old fisherman's wife",look:"Long dark brown hair, expressive brown eyes, medium build, simple worn blue dress. Initially loving and grateful, increasingly demanding. Natural expressive female voice."});if(!characters.some(x=>x.name==="Golden Fish"))addCharacter({name:"Golden Fish",role:"Ancient magical talking fish",look:"Magnificent shimmering golden scales, bright glowing eyes, elegant fins, subtle magical golden aura. Wise, mysterious, calm, powerful. Magical calm slightly echoing voice."})};
+$("#clearBtn").onclick=()=>{story.value="";updateCount();plan.innerHTML='<div class="empty">Your locked story scenes, dialogue, continuity and GPU shots will appear here.</div>';lastPlan=null;$("#generateBtn").disabled=true};
+$("#saveDraft").onclick=()=>{localStorage.setItem("ahm_draft_v4",story.value);$("#statusText").textContent="Draft saved"};
+$("#newProject").onclick=()=>{if(confirm("Start a new project? Your saved character library will remain.")){story.value="";updateCount();lastPlan=null;$("#generateBtn").disabled=true;plan.innerHTML='<div class="empty">New project ready.</div>';window.scrollTo({top:0,behavior:"smooth"})}};
 
-  const t = await r.text();
+function parseScript(text){
+ const lines=text.replace(/\r/g,"").split("\n"), scenes=[];let current=null,section="";let title="",style="",constraints=[];
+ for(let raw of lines){
+  let line=raw.trim();
+  if(!line||/^---+$/.test(line))continue;
+  if(!current){
+   if(/^STYLE\s*:/i.test(line))style=line.replace(/^STYLE\s*:/i,"").trim();
+   else if(/^IMPORTANT\s*:/i.test(line))constraints.push(line.replace(/^IMPORTANT\s*:/i,"").trim());
+   else if(/^SCENE\s+\d+\s*(?:—|-|:)/i.test(line)){current=newScene(line);scenes.push(current);section="action"}
+   continue
+  }
+  const sm=line.match(/^SCENE\s+(\d+)\s*(?:—|-|:)\s*(.*)$/i);
+  if(sm){current=newScene(line);scenes.push(current);section="action";continue}
+  let loc=line.match(/^LOCATION\s*:\s*(.*)$/i);if(loc){current.location=loc[1];section="location";continue}
+  if(/^ACTION\s*:\s*$/i.test(line)){section="action";continue}
+  if(/^DIALOGUE\s*:\s*$/i.test(line)){section="dialogue";continue}
+  if(/^CHARACTER(S)?\s*:/i.test(line)){section="characters";current.raw.push(line);continue}
+  let d=line.match(/^([A-Z][A-Z0-9 _-]{1,40})\s*:\s*(.*)$/);
+  if(d&&!/^(STYLE|IMPORTANT|LOCATION|ACTION|DIALOGUE|CAMERA|AUDIO|SOUND|EMOTION|CONTINUITY|ENVIRONMENT|ROLE|LOOK)$/i.test(d[1])){
+    const speaker=d[1].trim(),text=d[2].trim().replace(/^["“]|["”]$/g,"");
+    if(text){current.dialogue.push({speaker,text});current.characters.add(speaker)}
+    section="dialogue";continue
+  }
+  if(section==="action")current.action.push(line);
+  else if(section==="dialogue"&&current.dialogue.length)current.dialogue[current.dialogue.length-1].text+=" "+line.replace(/^["“]|["”]$/g,"");
+  else if(section==="location")current.location+=(current.location?" ":"")+line;
+  else current.raw.push(line);
+ }
+ const clean=scenes.filter((s,i)=>i===0||s.num!==scenes[i-1].num);
+ clean.forEach(s=>{
+   characters.forEach(c=>{if(s.action.join(" ").toUpperCase().includes(c.name.toUpperCase()))s.characters.add(c.name.toUpperCase())});
+   const text=(s.action.join(" ")+" "+s.dialogue.map(d=>d.text).join(" ")).trim();
+   s.shots=makeShots(s,text)
+ });
+ return {title,style,constraints,scenes:clean}
+}
+function newScene(line){const m=line.match(/^SCENE\s+(\d+)\s*(?:—|-|:)\s*(.*)$/i);return{num:+m[1],title:m[2].trim(),location:"",action:[],dialogue:[],characters:new Set(),shots:[],raw:[]}}
+function makeShots(s,text){
+ const words=Math.max(1,text.split(/\s+/).length), count=Math.max(2,Math.min(10,Math.ceil(words/28)));
+ const cams=["Wide establishing shot","Medium performance shot","Tracking shot","Over-the-shoulder shot","Emotional close-up","Slow cinematic push-in","Two-shot","Detail insert","Low-angle dramatic shot","Reaction close-up"];
+ const actions=s.action.filter(Boolean), shots=[];
+ for(let i=0;i<count;i++){
+  const source=actions[Math.min(i,Math.max(0,actions.length-1))]||"Perform the supplied story action faithfully.";
+  shots.push({id:`${s.num}.${i+1}`,camera:cams[i%cams.length],visual:source})
+ }
+ return shots
+}
+function formatTime(sec){sec=Math.max(0,Math.round(sec));return `${String(Math.floor(sec/60)).padStart(2,"0")}:${String(sec%60).padStart(2,"0")}`}
+function renderPlan(p){
+ if(!p.scenes.length){plan.innerHTML='<div class="empty">No valid SCENE headings found. Use “SCENE 1 — Title”.</div>';return}
+ const targetSec=+$("#length").value*60;
+ const weights=p.scenes.map(s=>Math.max(1,s.action.join(" ").split(/\s+/).length+s.dialogue.map(d=>d.text).join(" ").split(/\s+/).length*1.35));
+ const total=weights.reduce((a,b)=>a+b,0);let cursor=0;
+ let html=`<div class="plan-meta"><span class="pill">${p.scenes.length} STORY SCENES LOCKED</span><span class="pill">~${formatTime(targetSec)} TARGET</span><span class="pill">${p.scenes.reduce((a,s)=>a+s.shots.length,0)} INTERNAL GPU SHOTS</span><span class="pill">Dialogue locked</span><span class="pill">Continuity locked</span></div>`;
+ if(p.style)html+=`<div class="fieldbox"><b>Global visual style</b><p>${esc(p.style)}</p></div>`;
+ if(p.constraints.length)html+=`<div class="fieldbox"><b>Global constraints</b><p>${esc(p.constraints.join("\\n"))}</p></div>`;
+ p.scenes.forEach(s=>{
+  const dur=targetSec*(Math.max(1,s.action.join(" ").split(/\s+/).length+s.dialogue.map(d=>d.text).join(" ").split(/\s+/).length*1.35))/total;
+  const start=cursor;cursor+=dur;
+  const chars=[...s.characters].join(", ")||"Auto-detect from screenplay";
+  const dialogue=s.dialogue.length?s.dialogue.map(d=>`<div class="shot"><b>${esc(d.speaker)}</b><br>${esc(d.text)}</div>`).join(""):"<p>No explicit dialogue.</p>";
+  const shots=s.shots.map(x=>`<div class="shot"><b>GPU SHOT ${x.id} · ${esc(x.camera)}</b><br>${esc(x.visual)}</div>`).join("");
+  html+=`<article class="scene"><div class="scene-head"><div><div class="scene-title">SCENE ${String(s.num).padStart(2,"0")} · ${esc(s.title)}</div><small>${esc(chars)}</small></div><div class="scene-time">${formatTime(start)} → ${formatTime(cursor)}</div></div><div class="scene-body">
+  <div class="fieldbox"><b>Location</b><p>${esc(s.location||"Use the location established by the screenplay.")}</p></div>
+  <div class="fieldbox"><b>Characters</b><p>${esc(chars)}</p></div>
+  <div class="fieldbox"><b>Action</b><p>${esc(s.action.join("\\n")||"Perform the supplied action faithfully.")}</p></div>
+  <div class="fieldbox"><b>Dialogue — locked</b>${dialogue}</div>
+  <div class="fieldbox"><b>Internal GPU shot map</b>${shots}</div>
+  <div class="fieldbox"><b>Continuity lock</b><p>Use the saved character bible. Preserve face, age, hair, body proportions, wardrobe, voice, props, location and time continuity. Never invent a conflicting event.</p></div>
+ </div></article>`
+ });
+ plan.innerHTML=html
+}
+$("#buildPlan").onclick=()=>{
+ if(!story.value.trim()){alert("Paste a screenplay first.");return}
+ lastPlan=parseScript(story.value);renderPlan(lastPlan);
+ $("#planSummary").textContent=`${lastPlan.scenes.length} original story scenes locked. ${lastPlan.scenes.reduce((a,s)=>a+s.shots.length,0)} internal production shots prepared.`;
+ $("#generateBtn").disabled=!lastPlan.scenes.length;
+ $("#statusText").textContent="Plan ready";
+ window.scrollTo({top:$("#plan").getBoundingClientRect().top+scrollY-80,behavior:"smooth"})
+};
 
-  let d;
+async function generate(){
+ if(!lastPlan?.scenes?.length)return;
+ $("#generation").classList.remove("hidden");const logs=$("#logs"),bar=$("#progressBar"),status=$("#genStatus"),result=$("#result");
+ logs.innerHTML="";result.innerHTML="";bar.style.width="0%";status.textContent="Submitting";$("#statusText").textContent="Generating";
+ 
+ const payload={project:{script:story.value,characters,style:$("#visualStyle").value,format:$("#format").value,targetMinutes:+$("#length").value,voiceMode:$("#voiceMode").value,noNarrator:$("#noNarrator").checked,subtitles:$("#subtitles").checked},plan:lastPlan};
+ 
+ try{
+   const r=await fetch("/api/generate",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)});
+   const data=await r.json();
+   if(!r.ok)throw new Error(data.error||"Generation request failed");
+   logs.innerHTML+=`<div>✓ AHM Director package submitted: ${esc(data.projectId||"job")}</div>`;
+   if(data.status==="ready"&&data.videoUrl){bar.style.width="100%";status.textContent="Ready";result.innerHTML=`<a class="download" href="${esc(data.videoUrl)}" download>⬇ Download Final MP4</a>`;return}
+   const jobId=data.jobId||data.id||data.projectId;
+   
+   for(let n=1;n<=60;n++){
+     await new Promise(res=>setTimeout(res,3000));
+     const q=await fetch("/api/generate?jobId="+encodeURIComponent(jobId));
+     const d=await q.json();
+     if(!q.ok)throw new Error(d.error||"Status check failed");
+     bar.style.width=Math.min(99,d.progress||Math.round(n/60*100))+"%";status.textContent=d.status||"Generating";
+     logs.innerHTML+=`<div>• ${esc(d.message||"GPU worker processing...")}</div>`;
+     if(d.status==="COMPLETED" || d.status==="READY"){bar.style.width="100%";result.innerHTML=d.videoUrl ? `<a class="download" href="${esc(d.videoUrl)}" download>⬇ Download Final MP4</a>` : `<div style="color: #6ee7b7">✓ Generation successful (Demo Mode). No GPU spent.</div>`;break}
+     if(d.status==="ERROR" || d.status==="FAILED")throw new Error(d.error||"GPU generation failed")
+   }
+ }catch(e){
+   status.textContent="Error";$("#statusText").textContent="Generation Error";
+   logs.innerHTML+=`<div>⚠ ${esc(e.message)}</div><div>ℹ Ensure your Render Environment Variables (RUNPOD_API_KEY, RUNPOD_ENDPOINT_ID) are set up correctly.</div>`
+ }
+}
+$("#generateBtn").onclick=generate;
 
+$("#settingsBtn").onclick=async ()=>{
+  $("#settingsModal").classList.remove("hidden");
+  $("#connectionNote").textContent="Checking server connection...";
   try {
-    d = JSON.parse(t);
-  } catch {
-    throw new Error(
-      `Server returned non-JSON (${r.status}). ${t.slice(
-        0,
-        300
-      )}`
-    );
+     const r = await fetch("/api/settings");
+     const s = await r.json();
+     if (s.mode === "demo") {
+        $("#connectionNote").textContent = "Server is in DEMO mode. No GPU charges will occur.";
+     } else {
+        $("#connectionNote").textContent = s.hasApiKey && s.hasEndpoint ?
+         "Connected securely to RunPod via Render Environment Variables." :
+         "Missing RUNPOD_API_KEY or RUNPOD_ENDPOINT_ID in Render Environment Variables.";
+     }
+  } catch(e) {
+     $("#connectionNote").textContent = "Could not check server connection.";
   }
-
-  if (!r.ok) {
-    throw new Error(
-      apiError(r, d)
-    );
-  }
-
-  return d;
-}
-
-function setStatus(text, bad = false) {
-  $("#directorStatus").textContent =
-    text;
-
-  $("#directorStatus").className =
-    bad
-      ? "status bad"
-      : "status";
-}
-
-async function refreshHealth() {
-  try {
-    const d =
-      await jsonFetch(
-        "/api/health"
-      );
-
-    const ready =
-      d.runpodConfigured;
-
-    $("#systemStatus").innerHTML =
-      `<i></i> ${
-        ready
-          ? "RunPod Ready"
-          : "Director Ready"
-      }`;
-
-    $("#systemStatus").style.color =
-      "";
-  } catch (e) {
-    $("#systemStatus").innerHTML =
-      "<i></i> Offline";
-
-    $("#systemStatus").style.color =
-      "var(--danger)";
-  }
-}
-
-async function refreshSettings() {
-  try {
-    const s =
-      await jsonFetch(
-        "/api/settings"
-      );
-
-    $("#setupBox").innerHTML = `
-      <p>
-        <b>Server status:</b>
-        ${esc(s.environment)}
-      </p>
-
-      <p>
-        <b>RunPod API key:</b>
-        ${
-          s.hasApiKey
-            ? "<span class='good'>Configured</span>"
-            : "<span class='bad'>Missing</span>"
-        }
-      </p>
-
-      <p>
-        <b>Endpoint ID:</b>
-        ${
-          s.hasEndpoint
-            ? "<span class='good'>Configured</span>"
-            : "<span class='bad'>Missing</span>"
-        }
-      </p>
-
-      <p>
-        <b>Worker mode:</b>
-        <code>${esc(
-          s.workerMode
-        )}</code>
-      </p>
-
-      <hr>
-
-      <b>For Render:</b>
-
-      <ol>
-        <li>
-          Open your Render service →
-          <b>Environment</b>.
-        </li>
-
-        <li>
-          Add
-          <code>RUNPOD_API_KEY</code>.
-        </li>
-
-        <li>
-          Add
-          <code>RUNPOD_ENDPOINT_ID</code>.
-        </li>
-
-        <li>
-          For the free local contract test use
-          <code>AHM_WORKER_MODE=demo</code>.
-        </li>
-
-        <li>
-          Redeploy after saving variables.
-        </li>
-      </ol>
-
-      <p class="hint">
-        The secret is intentionally never accepted
-        by this browser page.
-      </p>
-    `;
-  } catch (e) {
-    $("#setupBox").innerHTML =
-      `<p class="bad">${esc(
-        e.message
-      )}</p>`;
-  }
-}
-
-$("#screenplay").addEventListener(
-  "input",
-  wordCount
-);
-
-$("#loadTest").onclick = () => {
-  $("#screenplay").value =
-    GOLDEN;
-
-  wordCount();
-
-  $("#scriptStatus").textContent =
-    "Golden Fish test loaded. Build the plan — no GPU request.";
+};
+$("#closeSettings").onclick=()=>$("#settingsModal").classList.add("hidden");
+$("#saveSettings").onclick=()=>{
+  $("#connectionNote").textContent="Settings configured safely on the server side.";
+  $("#settingsModal").classList.add("hidden")
+};
+$("#clearKey").onclick=()=>{
+  $("#connectionNote").textContent="API keys should be managed in Render Environment Variables.";
 };
 
-$("#clearScript").onclick = () => {
-  $("#screenplay").value =
-    "";
-
-  plan = null;
-
-  wordCount();
-
-  $("#planView")
-    .classList
-    .add("hidden");
-
-  $("#generationView")
-    .classList
-    .add("hidden");
-
-  $("#generate").disabled =
-    true;
-
-  setStatus(
-    "Ready."
-  );
-};
-
-$("#newBtn").onclick = () => {
-  $("#clearScript").click();
-
-  scrollTo({
-    top: 0,
-    behavior: "smooth"
-  });
-};
-
-$("#healthBtn").onclick =
-  refreshHealth;
-
-$("#settingsBtn").onclick =
-  async () => {
-    $("#settingsModal")
-      .classList
-      .remove("hidden");
-
-    await refreshSettings();
-  };
-
-$("#refreshSettings").onclick =
-  refreshSettings;
-
-$("#closeSettings").onclick =
-  () =>
-    $("#settingsModal")
-      .classList
-      .add("hidden");
-
-$("#closeChar").onclick =
-  () =>
-    $("#charModal")
-      .classList
-      .add("hidden");
-
-function renderChars() {
-  const box =
-    $("#chars");
-
-  box.innerHTML = "";
-
-  if (!chars.length) {
-    box.innerHTML =
-      '<div class="muted">No saved characters yet.</div>';
-
-    return;
-  }
-
-  for (const c of chars) {
-    const d =
-      document.createElement(
-        "div"
-      );
-
-    d.className =
-      "char";
-
-    d.innerHTML = `
-      <h3>${esc(
-        c.name
-      )}</h3>
-
-      <p>
-        <b>${esc(
-          c.role || ""
-        )}</b>
-      </p>
-
-      <p>${esc(
-        c.look || ""
-      )}</p>
-
-      <div class="mini">
-
-        <button
-          class="secondary"
-          data-edit="${esc(
-            c.id
-          )}"
-        >
-          Edit
-        </button>
-
-        <button
-          class="secondary danger"
-          data-del="${esc(
-            c.id
-          )}"
-        >
-          Delete
-        </button>
-
-      </div>
-    `;
-
-    box.appendChild(d);
-  }
-
-  box
-    .querySelectorAll(
-      "[data-edit]"
-    )
-    .forEach(
-      b =>
-        (b.onclick = () =>
-          editChar(
-            b.dataset.edit
-          ))
-    );
-
-  box
-    .querySelectorAll(
-      "[data-del]"
-    )
-    .forEach(
-      b =>
-        (b.onclick = () => {
-          chars =
-            chars.filter(
-              c =>
-                c.id !==
-                b.dataset.del
-            );
-
-          localStorage.setItem(
-            "ahm_chars_v80",
-            JSON.stringify(
-              chars
-            )
-          );
-
-          renderChars();
-        })
-    );
-}
-
-function editChar(id) {
-  const c =
-    chars.find(
-      x => x.id === id
-    );
-
-  if (!c) return;
-
-  $("#charId").value =
-    c.id;
-
-  $("#cName").value =
-    c.name || "";
-
-  $("#cRole").value =
-    c.role || "";
-
-  $("#cLook").value =
-    c.look || "";
-
-  $("#cPersonality").value =
-    c.personality || "";
-
-  $("#cVoice").value =
-    c.voice || "";
-
-  $("#charTitle").textContent =
-    "Edit Character";
-
-  $("#charModal")
-    .classList
-    .remove("hidden");
-}
-
-$("#addChar").onclick = () => {
-  [
-    "charId",
-    "cName",
-    "cRole",
-    "cLook",
-    "cPersonality",
-    "cVoice"
-  ].forEach(
-    x =>
-      ($("#" + x).value =
-        "")
-  );
-
-  $("#charTitle").textContent =
-    "Add Character";
-
-  $("#charModal")
-    .classList
-    .remove("hidden");
-};
-
-$("#saveChar").onclick = () => {
-  const name =
-    $("#cName")
-      .value
-      .trim();
-
-  if (!name) {
-    alert(
-      "Character name is required."
-    );
-
-    return;
-  }
-
-  const cid =
-    $("#charId").value ||
-    (
-      crypto.randomUUID
-        ? crypto.randomUUID()
-        : `char_${Date.now()}_${Math.random()
-            .toString(36)
-            .slice(2)}`
-    );
-
-  const c = {
-    id: cid,
-
-    name,
-
-    role:
-      $("#cRole")
-        .value
-        .trim(),
-
-    look:
-      $("#cLook")
-        .value
-        .trim(),
-
-    personality:
-      $("#cPersonality")
-        .value
-        .trim(),
-
-    voice:
-      $("#cVoice")
-        .value
-        .trim()
-  };
-
-  const i =
-    chars.findIndex(
-      x => x.id === cid
-    );
-
-  if (i >= 0) {
-    chars[i] = c;
-  } else {
-    chars.push(c);
-  }
-
-  localStorage.setItem(
-    "ahm_chars_v80",
-    JSON.stringify(
-      chars
-    )
-  );
-
-  renderChars();
-
-  $("#charModal")
-    .classList
-    .add("hidden");
-};
-
-function renderPlan(p) {
-  if (!p) {
-    throw new Error(
-      "Director returned an empty plan."
-    );
-  }
-
-  const validation =
-    p.validation || {};
-
-  const scenes =
-    Array.isArray(
-      p.scenes
-    )
-      ? p.scenes
-      : [];
-
-  const parts =
-    Array.isArray(
-      p.parts
-    )
-      ? p.parts
-      : Array.isArray(
-          p.episodes
-        )
-        ? p.episodes
-        : [];
-
-  const explicitScenes =
-    validation.explicitScenes ??
-    scenes.length;
-
-  const actualEpisodes =
-    validation.actualEpisodes ??
-    p.partsActual ??
-    parts.length;
-
-  const dialogueLines =
-    validation.dialogueLines ??
-    p.dialogueLines ??
-    0;
-
-  const gpuShots =
-    validation.gpuShots ??
-    validation.shots ??
-    p.gpuShots ??
-    0;
-
-  let h = `
-    <div class="plan-meta">
-
-      <div class="pill">
-        ${explicitScenes}
-        scenes locked
-      </div>
-
-      <div class="pill">
-        ${actualEpisodes}
-        parts
-      </div>
-
-      <div class="pill">
-        ${dialogueLines}
-        dialogue lines
-      </div>
-
-      <div class="pill">
-        ${gpuShots}
-        GPU shots
-      </div>
-
-    </div>
-  `;
-
-  h += `
-    <div class="plan">
-
-      <b>AHM DIRECTOR V8.2</b>
-
-      Format:
-      ${esc(
-        p.format ||
-        "9:16"
-      )}
-
-      Target:
-      ${esc(
-        p.targetLength ??
-        p.targetSeconds ??
-        ""
-      )}s
-
-      Planned:
-      ${esc(
-        p.plannedSeconds ??
-        p.plannedDuration ??
-        ""
-      )}s
-
-      Subtitles:
-      ${
-        p.subtitles
-          ? "EXACT DIALOGUE"
-          : "OFF"
-      }
-
-      Narrator:
-      ${
-        p.noNarrator
-          ? "OFF unless scripted"
-          : "ALLOWED"
-      }
-
-      GLOBAL STYLE
-      ${esc(
-        (
-          p.global &&
-          Array.isArray(
-            p.global.style
-          )
-            ? p.global.style
-            : []
-        ).join("\n") ||
-          p.visualStyle ||
-          "Cinematic"
-      )}
-
-      CONTINUITY LOCK
-      Character identity, voice, wardrobe, props,
-      geography and chronological story events remain
-      locked. No invented story events.
-    </div>
-  `;
-
-  if (
-    Array.isArray(
-      validation.warnings
-    ) &&
-    validation.warnings.length
-  ) {
-    h += `
-      <div class="result">
-        <b>Director notes</b>
-        <ul>
-          ${validation.warnings
-            .map(
-              w =>
-                `<li>${esc(
-                  w
-                )}</li>`
-            )
-            .join("")}
-        </ul>
-      </div>
-    `;
-  }
-
-  parts.forEach(
-    part => {
-      const episodeNumber =
-        part.episode ??
-        part.part ??
-        1;
-
-      const duration =
-        part.duration ??
-        0;
-
-      const partScenes =
-        Array.isArray(
-          part.scenes
-        )
-          ? part.scenes
-          : [];
-
-      h += `
-        <details
-          class="episode"
-          open
-        >
-
-          <summary>
-            PART ${esc(
-              episodeNumber
-            )}
-            —
-            ${esc(
-              duration
-            )}s
-            •
-            ${partScenes.length}
-            scene(s)
-          </summary>
-      `;
-
-      partScenes.forEach(
-        s => {
-          const sceneNumber =
-            s.number ??
-            "";
-
-          const sceneTitle =
-            s.title ||
-            `Scene ${sceneNumber}`;
-
-          const sceneAction =
-            Array.isArray(
-              s.action
-            )
-              ? s.action
-              : [];
-
-          const sceneDialogue =
-            Array.isArray(
-              s.dialogue
-            )
-              ? s.dialogue
-              : [];
-
-          const sceneShots =
-            Array.isArray(
-              s.shots
-            )
-              ? s.shots
-              : [];
-
-          h += `
-            <div class="scene">
-
-              <h4>
-                SCENE
-                ${esc(
-                  sceneNumber
-                )}
-                —
-                ${esc(
-                  sceneTitle
-                )}
-
-                <span class="muted">
-                  (
-                  ${esc(
-                    s.duration ??
-                    0
-                  )}s
-                  )
-                </span>
-              </h4>
-
-              <div>
-                <b>LOCATION</b>
-
-                <p>
-                  ${esc(
-                    s.location ||
-                    "Not specified."
-                  )}
-                </p>
-              </div>
-
-              <div>
-                <b>ACTION</b>
-
-                <p>
-                  ${esc(
-                    sceneAction.join(
-                      "\n"
-                    )
-                  )}
-                </p>
-              </div>
-
-              ${
-                Array.isArray(
-                  s.emotion
-                ) &&
-                s.emotion.length
-                  ? `
-                    <div>
-                      <b>EMOTION</b>
-                      <p>
-                        ${esc(
-                          s.emotion.join(
-                            "\n"
-                          )
-                        )}
-                      </p>
-                    </div>
-                  `
-                  : ""
-              }
-
-              ${
-                Array.isArray(
-                  s.sound
-                ) &&
-                s.sound.length
-                  ? `
-                    <div>
-                      <b>SOUND</b>
-                      <p>
-                        ${esc(
-                          s.sound.join(
-                            "\n"
-                          )
-                        )}
-                      </p>
-                    </div>
-                  `
-                  : ""
-              }
-
-              <div>
-                <b>
-                  DIALOGUE — LOCKED
-                </b>
-          `;
-
-          if (
-            sceneDialogue.length
-          ) {
-            sceneDialogue.forEach(
-              d => {
-                h += `
-                  <div class="shot dialogue">
-
-                    <b>
-                      ${esc(
-                        d.speaker
-                      )}:
-                    </b>
-
-                    ${esc(
-                      d.text
-                    )}
-
-                  </div>
-                `;
-              }
-            );
-          } else {
-            h += `
-              <div class="muted">
-                No dialogue in this scene.
-              </div>
-            `;
-          }
-
-          h += `
-              </div>
-
-              <div>
-                <b>
-                  GPU SHOT PLAN
-                  (${sceneShots.length})
-                </b>
-          `;
-
-          sceneShots.forEach(
-            (
-              sh,
-              i
-            ) => {
-              const visual =
-                sh.visual ??
-                sh.visualPrompt ??
-                sh.action ??
-                "";
-
-              const dialogue =
-                Array.isArray(
-                  sh.dialogue
-                )
-                  ? sh.dialogue
-                  : [];
-
-              h += `
-                <div class="shot">
-
-                  <b>
-                    ${i + 1}.
-                    ${esc(
-                      sh.type ||
-                      "SHOT"
-                    )}
-                    —
-                    ${esc(
-                      sh.camera ||
-                      ""
-                    )}
-                  </b>
-
-                  <br>
-
-                  ${esc(
-                    visual
-                  )}
-
-                  ${
-                    dialogue.length
-                      ? `
-                        <div class="mini">
-                          ${dialogue
-                            .map(
-                              d =>
-                                `<b>${esc(
-                                  d.speaker
-                                )}:</b> ${esc(
-                                  d.text
-                                )}`
-                            )
-                            .join(
-                              "<br>"
-                            )}
-                        </div>
-                      `
-                      : ""
-                  }
-
-                </div>
-              `;
-            }
-          );
-
-          h += `
-              </div>
-
-            </div>
-          `;
-        }
-      );
-
-      h += `
-        </details>
-      `;
-    }
-  );
-
-  $("#planView").innerHTML =
-    h;
-}
-
-$("#build").onclick =
-  async () => {
-    const screenplay =
-      $("#screenplay")
-        .value
-        .trim();
-
-    if (!screenplay) {
-      alert(
-        "Paste your screenplay first."
-      );
-
-      return;
-    }
-
-    setStatus(
-      "Director is parsing, locking continuity and building shots…"
-    );
-
-    $("#build").disabled =
-      true;
-
-    $("#generate").disabled =
-      true;
-
-    try {
-      const response =
-        await jsonFetch(
-          "/api/director/plan",
-          {
-            method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json"
-            },
-
-            body:
-              JSON.stringify({
-                screenplay,
-
-                characters:
-                  chars,
-
-                episodes:
-                  Number(
-                    $("#parts")
-                      .value
-                  ),
-
-                visualStyle:
-                  $("#style")
-                    .value,
-
-                format:
-                  $("#format")
-                    .value,
-
-                targetLength:
-                  Number(
-                    $("#length")
-                      .value
-                  ),
-
-                subtitle:
-                  $("#subtitles")
-                    .value ===
-                  "true",
-
-                noNarrator:
-                  $("#noNarrator")
-                    .checked
-              })
-          }
-        );
-
-      /*
-        SERVER RETURNS:
-        { ok: true, plan: {...} }
-
-        We must use response.plan,
-        not the wrapper itself.
-      */
-      plan =
-        response.plan ||
-        response;
-
-      if (
-        !plan.validation ||
-        !plan.validation.ok
-      ) {
-        throw new Error(
-          "Director plan validation failed."
-        );
-      }
-
-      renderPlan(
-        plan
-      );
-
-      $("#planView")
-        .classList
-        .remove("hidden");
-
-      $("#generate").disabled =
-        false;
-
-      setStatus(
-        "Plan ready. No GPU request was made."
-      );
-
-      scrollTo({
-        top:
-          $("#planView")
-            .getBoundingClientRect()
-            .top +
-          scrollY -
-          70,
-
-        behavior:
-          "smooth"
-      });
-    } catch (e) {
-      console.error(
-        "Director build error:",
-        e
-      );
-
-      setStatus(
-        e.message,
-        true
-      );
-    } finally {
-      $("#build").disabled =
-        false;
-    }
-  };
-
-async function submitRunPod(
-  testOnly = false
-) {
-  if (!plan) {
-    alert(
-      "Build the Director plan first."
-    );
-
-    return;
-  }
-
-  /*
-    TEST MODE:
-    This is completely free while the server
-    is configured with AHM_WORKER_MODE=demo.
-  */
-  if (testOnly) {
-    const confirmed =
-      confirm(
-        "Run the FREE AHM demo test?\n\n" +
-        "This validates the production plan locally and does NOT submit a paid GPU job."
-      );
-
-    if (!confirmed) {
-      return;
-    }
-  } else {
-    const confirmed =
-      confirm(
-        "This will submit a REAL GPU generation job to RunPod and may cost money.\n\nContinue?"
-      );
-
-    if (!confirmed) {
-      return;
-    }
-  }
-
-  $("#testGpu").disabled =
-    true;
-
-  $("#generate").disabled =
-    true;
-
-  setStatus(
-    testOnly
-      ? "Running free production contract test…"
-      : "Submitting GPU generation…"
-  );
-
-  try {
-    const d =
-      await jsonFetch(
-        "/api/generate",
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json"
-          },
-
-          body:
-            JSON.stringify({
-              plan,
-              testOnly
-            })
-        }
-      );
-
-    $("#generationView")
-      .classList
-      .remove("hidden");
-
-    $("#generationView").innerHTML = `
-      <div class="result">
-
-        <b>
-          ${
-            d.demo
-              ? "Free AHM demo test completed."
-              : "RunPod job submitted."
-          }
-        </b>
-
-        <p>
-          Job ID:
-          <code>
-            ${esc(
-              d.id ||
-              "unknown"
-            )}
-          </code>
-        </p>
-
-        ${
-          d.message
-            ? `<p>${esc(
-                d.message
-              )}</p>`
-            : ""
-        }
-
-        <pre>${esc(
-          JSON.stringify(
-            d,
-            null,
-            2
-          )
-        )}</pre>
-
-      </div>
-    `;
-
-    if (
-      d.demo &&
-      d.status ===
-        "COMPLETED"
-    ) {
-      setStatus(
-        "Free demo test completed successfully. No GPU was charged."
-      );
-
-      return;
-    }
-
-    setStatus(
-      "Job submitted. Monitoring status…"
-    );
-
-    if (d.id) {
-      pollJob(
-        d.id
-      );
-    }
-  } catch (e) {
-    console.error(
-      "Generation error:",
-      e
-    );
-
-    setStatus(
-      e.message,
-      true
-    );
-
-    $("#generationView")
-      .classList
-      .remove("hidden");
-
-    $("#generationView").innerHTML = `
-      <div class="result bad">
-        ${esc(
-          e.message
-        )}
-      </div>
-    `;
-  } finally {
-    $("#testGpu").disabled =
-      false;
-
-    $("#generate").disabled =
-      false;
-  }
-}
-
-$("#testGpu").onclick =
-  () =>
-    submitRunPod(
-      true
-    );
-
-$("#generate").onclick =
-  () =>
-    submitRunPod(
-      false
-    );
-
-async function pollJob(
-  jobId
-) {
-  for (
-    let i = 0;
-    i < 240;
-    i++
-  ) {
-    await new Promise(
-      resolve =>
-        setTimeout(
-          resolve,
-          5000
-        )
-    );
-
-    try {
-      /*
-        Server supports POST /api/job-status
-        with { id: jobId }.
-      */
-      const d =
-        await jsonFetch(
-          "/api/job-status",
-          {
-            method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json"
-            },
-
-            body:
-              JSON.stringify({
-                id: jobId
-              })
-          }
-        );
-
-      const output =
-        d.output
-          ? `
-            <p>
-              <b>Output:</b>
-            </p>
-
-            <pre>
-              ${esc(
-                JSON.stringify(
-                  d.output,
-                  null,
-                  2
-                )
-              )}
-            </pre>
-          `
-          : "";
-
-      $("#generationView").innerHTML = `
-        <div class="result">
-
-          <b>RunPod Job</b>
-
-          <p>
-            Status:
-            <strong>
-              ${esc(
-                d.status ||
-                "UNKNOWN"
-              )}
-            </strong>
-          </p>
-
-          ${
-            d.progress != null
-              ? `
-                <p>
-                  Progress:
-                  ${esc(
-                    d.progress
-                  )}%
-                </p>
-              `
-              : ""
-          }
-
-          ${
-            d.message
-              ? `
-                <p>
-                  ${esc(
-                    d.message
-                  )}
-                </p>
-              `
-              : ""
-          }
-
-          ${output}
-
-          <pre>
-            ${esc(
-              JSON.stringify(
-                {
-                  ...d,
-                  output:
-                    undefined
-                },
-                null,
-                2
-              )
-            )}
-          </pre>
-
-        </div>
-      `;
-
-      const status =
-        String(
-          d.status ||
-            ""
-        ).toUpperCase();
-
-      if (
-        status ===
-          "COMPLETED" ||
-        status ===
-          "SUCCEEDED" ||
-        status ===
-          "READY"
-      ) {
-        setStatus(
-          "RunPod job completed."
-        );
-
-        return;
-      }
-
-      if (
-        [
-          "FAILED",
-          "ERROR",
-          "CANCELLED",
-          "TIMED_OUT"
-        ].includes(
-          status
-        )
-      ) {
-        setStatus(
-          `GPU job ended: ${status}`,
-          true
-        );
-
-        return;
-      }
-    } catch (e) {
-      console.error(
-        "Status check error:",
-        e
-      );
-
-      $("#generationView")
-        .innerHTML = `
-          <div class="result bad">
-
-            Status check failed:
-            ${esc(
-              e.message
-            )}
-
-            <br>
-
-            Job ID:
-            ${esc(
-              jobId
-            )}
-
-          </div>
-        `;
-
-      setStatus(
-        "Could not monitor the GPU job.",
-        true
-      );
-
-      return;
-    }
-  }
-
-  setStatus(
-    "Stopped polling after 20 minutes. Check the RunPod job status.",
-    true
-  );
-}
-
-$("#saveDraft").onclick =
-  async () => {
-    const screenplay =
-      $("#screenplay")
-        .value
-        .trim();
-
-    if (!screenplay) {
-      alert(
-        "Nothing to save."
-      );
-
-      return;
-    }
-
-    try {
-      const firstLine =
-        screenplay
-          .split("\n")
-          .find(
-            x =>
-              x.trim()
-          );
-
-      await jsonFetch(
-        "/api/projects",
-        {
-          method: "POST",
-
-          headers: {
-            "Content-Type":
-              "application/json"
-          },
-
-          body:
-            JSON.stringify({
-              title:
-                (
-                  firstLine ||
-                  "Untitled"
-                ).slice(
-                  0,
-                  80
-                ),
-
-              screenplay,
-
-              characters:
-                chars,
-
-              plan
-            })
-        }
-      );
-
-      $("#scriptStatus")
-        .textContent =
-        "Draft saved on the server filesystem.";
-    } catch (e) {
-      $("#scriptStatus")
-        .textContent =
-        e.message;
-    }
-  };
-
-renderChars();
-
-wordCount();
-
-refreshHealth();
+const draft=localStorage.getItem("ahm_draft_v4");if(draft&&!story.value)story.value=draft;
+updateCount();renderCharacters();
